@@ -1,0 +1,134 @@
+# ============================================================
+# Hospital Intelligent Pharmacy System - Git Ignore
+# ============================================================
+
+# ------------------------------------------------------------
+# Python
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+.venv/
+.env.local
+
+# ------------------------------------------------------------
+# Node.js
+# ------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# ------------------------------------------------------------
+# Database Files
+# ------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+app.db
+his.db
+
+# ------------------------------------------------------------
+# Configuration & Secrets
+# ------------------------------------------------------------
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Config files with passwords (keep template versions)
+hospital/hospital_back/config.py
+RosConnectCamara/camara/config.py
+RosConnectCamara/ros_camera_bridge/config.py
+
+# ------------------------------------------------------------
+# SSL Certificates & Keys
+# ------------------------------------------------------------
+*.pem
+*.key
+*.crt
+*.cert
+hospital/his/client/cert.pem
+hospital/his/client/key.pem
+
+# ------------------------------------------------------------
+# IDE & Editor
+# ------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ------------------------------------------------------------
+# OS Generated Files
+# ------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ------------------------------------------------------------
+# Logs & Temporary Files
+# ------------------------------------------------------------
+logs/
+*.log
+*.tmp
+*.temp
+.cache/
+
+# ------------------------------------------------------------
+# Test & Coverage
+# ------------------------------------------------------------
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.pytest_cache/
+coverage.xml
+*.cover
+
+# ------------------------------------------------------------
+# Package Files
+# ------------------------------------------------------------
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ------------------------------------------------------------
+# Misc
+# ------------------------------------------------------------
+*.bak
+*.backup
+*.orig
+*.pid
+*.seed
+*.pid.lock
+
+# Keep restart script
+!restart-all.ps1
