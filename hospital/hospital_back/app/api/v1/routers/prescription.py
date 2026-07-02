@@ -256,16 +256,19 @@ def get_prescriptions_progress(limit: int = 20):
                         )
                         ws_row = ws_result.fetchone()
                         if ws_row:
-                            # 将结果转换为字典
+                            # 将结果转换为字典（列索引已修正）
+                            # 表结构：id(0), prescription_code(1), prescription_id(2), current_node(3),
+                            #         node2_status(4), node2_desc(5), node3_status(6), node3_desc(7),
+                            #         node4_status(8), node4_desc(9), ros_status(10), updated_at(11)
                             workflow_state = {
-                                "current_node": ws_row[2],
-                                "node2_status": ws_row[3],
-                                "node2_desc": ws_row[4],
-                                "node3_status": ws_row[5],
-                                "node3_desc": ws_row[6],
-                                "node4_status": ws_row[7],
-                                "node4_desc": ws_row[8],
-                                "ros_status": ws_row[9],
+                                "current_node": ws_row[3],
+                                "node2_status": ws_row[4],
+                                "node2_desc": ws_row[5],
+                                "node3_status": ws_row[6],
+                                "node3_desc": ws_row[7],
+                                "node4_status": ws_row[8],
+                                "node4_desc": ws_row[9],
+                                "ros_status": ws_row[10],
                             }
                 except Exception as e:
                     # 表不存在或其他错误，忽略
@@ -277,11 +280,28 @@ def get_prescriptions_progress(limit: int = 20):
                 node1_active = False  # 节点1不再有"进行中"状态
 
                 # 节点2：任务确认 - 优先使用 workflow_state 表的数据
+                # 但如果节点1已完成，节点2不能是 pending，必须是 active 或 completed
                 if workflow_state and workflow_state.get("node2_status"):
                     node2_status = workflow_state["node2_status"]
-                    node2_completed = node2_status == "completed"
-                    node2_active = node2_status == "active"
-                    node2_desc = workflow_state.get("node2_desc", "等待任务启动")
+                    if node2_status == "completed":
+                        node2_completed = True
+                        node2_active = False
+                        node2_desc = workflow_state.get("node2_desc", "任务确认完成")
+                    elif node2_status == "active":
+                        node2_completed = False
+                        node2_active = True
+                        node2_desc = workflow_state.get("node2_desc", "任务进行中")
+                    else:
+                        # 如果节点1已完成，节点2不能是 pending，必须是 active
+                        if node1_completed:
+                            node2_completed = False
+                            node2_active = True
+                            node2_desc = "等待任务确认"
+                        else:
+                            # 节点1未完成，节点2为 pending
+                            node2_completed = False
+                            node2_active = False
+                            node2_desc = "等待开具处方"
                 else:
                     # 没有 workflow_state 数据（未收到 ROS 状态），节点2为进行中
                     # 或使用追溯码判断（已扫码识别则为完成）

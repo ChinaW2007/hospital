@@ -129,13 +129,22 @@ async def send_prescription_to_ros(prescription_code: str):
                 websockets.connect(ROS_WS_URL),
                 timeout=settings.ros_connect_timeout
             )
-            # 注册 Topic（注意类型必须完全一致：his_sub/HisSub）
+            
+            # 先清除旧的Topic注册（防止ROS缓存旧类型）
+            await _ws_connection.send(json.dumps({
+                "op": "unadvertise",
+                "topic": ROS_TOPIC
+            }))
+            await asyncio.sleep(0.1)
+            
+            # 重新注册 Topic（注意类型必须完全一致：his_sub/HisSub）
             await _ws_connection.send(json.dumps({
                 "op": "advertise",
                 "topic": ROS_TOPIC,
                 "type": "his_sub/HisSub"
             }))
             await asyncio.sleep(0.3)
+            print("[HIS Sender] Topic 注册成功: /his_sub (his_sub/HisSub)")
         
         # 发送处方编码
         message = json.dumps({
