@@ -34,11 +34,11 @@ def get_latest_prescription_code():
     try:
         conn = pymysql.connect(**HIS_DB_CONFIG, connect_timeout=5)
         with conn.cursor() as cursor:
-            # 查询最新已审核的处方
+            # 查询最新待审核的处方（医生开具后状态为 pending）
             cursor.execute("""
                 SELECT prescription_code, id, created_at
                 FROM prescriptions
-                WHERE status = 'approved'
+                WHERE status = 'pending'
                 ORDER BY created_at DESC
                 LIMIT 1
             """)
@@ -69,25 +69,26 @@ def send_prescription_code_to_ros(prescription_code: str):
     try:
         ws = websocket.create_connection(ROS_WS_URL)
         
-        # 注册 Topic
+        # 注册 Topic（注意类型必须完全一致：his_sub/HisSub）
         ws.send(json.dumps({
             "op": "advertise",
             "topic": ROS_TOPIC,
-            "type": "std_msgs/String"
+            "type": "his_sub/HisSub"
         }))
         
         time.sleep(0.5)
         
-        # 发送药单编码
+        # 发送药单编码（JSON格式）
         message = json.dumps({
             "op": "publish",
             "topic": ROS_TOPIC,
             "msg": {
-                "data": prescription_code
+                "data": "start",
+                "prescription_code": prescription_code
             }
         })
         ws.send(message)
-        print(f"已发送药单编码到 ROS: {prescription_code}")
+        print(f"已发送药单编码到 ROS: start + {prescription_code}")
         
         ws.close()
         return True
@@ -99,11 +100,12 @@ def send_prescription_code_to_ros(prescription_code: str):
 
 def main_loop():
     """
-    主循环：持续监控 HIS 数据库，发现新处方立即发送到 ROS
+    主循环：持续发送当前处方编码到 ROS，直到处方编码更新
     """
     print("启动 HIS-ROS 药单编码发送服务...")
     print(f"ROS WebSocket: {ROS_WS_URL}")
     print(f"Topic: {ROS_TOPIC}")
+    print("逻辑: 持续发送当前处方编码，直到编码更新")
     print("-" * 50)
     
     last_prescription_code = None
@@ -113,17 +115,25 @@ def main_loop():
             # 获取最新处方编码
             current_code = get_latest_prescription_code()
             
-            # 如果有新处方（与上次不同），发送到 ROS
-            if current_code and current_code != last_prescription_code:
-                print(f"\n发现新处方: {current_code}")
+            # 如果有处方编码，持续发送
+            if current_code:
+                # 检测是否是新编码
+                if current_code != last_prescription_code:
+                    print(f"\n{'='*20}")
+                    print(f"处方编码更新: {last_prescription_code} -> {current_code}")
+                    print(f"{'='*20}")
+                    last_prescription_code = current_code
+                
+                # 发送当前处方编码到 ROS
                 if send_prescription_code_to_ros(current_code):
-                    last_prescription_code = current_codeF
-                    print(f"已成功发送，等待下一个处方...")
+                    print(f"[发送成功] 当前处方: {current_code}")
                 else:
-                    print("发送失败，稍后重试...")
+                    print("[发送失败] 等待重试...")
+            else:
+                print("[无处方] 等待新处方...")
             
-            # 等待下次检查
-            time.sleep(3)
+            # 发送间隔（每2秒发送一次）
+            time.sleep(2)
             
         except KeyboardInterrupt:
             print("\n服务停止")

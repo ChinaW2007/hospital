@@ -363,3 +363,19 @@ def get_workflow_status():
     finally:
         if "conn" in locals():
             conn.close()
+
+
+@router.get("/workflow/his_sender/status")
+def get_his_sender_status():
+    """
+    获取 HIS 处方发送服务状态
+    
+    返回：
+    - running: 服务是否运行
+    - current_prescription_code: 当前发送的处方编码
+    - last_sent_code: 上次发送成功的处方编码
+    - ros_ws_url: ROS WebSocket 地址
+    - ros_topic: 发送的 Topic
+    """
+    from app.services.his_sender import get_sender_status
+    return get_sender_status()

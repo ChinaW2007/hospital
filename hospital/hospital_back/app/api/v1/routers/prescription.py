@@ -272,9 +272,9 @@ def get_prescriptions_progress(limit: int = 20):
                     pass
 
                 # 计算4个节点的状态
-                # 节点1：开具处方 - 药师审核通过
-                node1_completed = presc["status"] in ("approved", "dispensed")
-                node1_active = presc["status"] == "pending"  # 等待药师确认中
+                # 节点1：开具处方 - 只要处方存在（医生已下药），就是已完成（绿色）
+                node1_completed = presc["status"] is not None  # 处方存在即为完成
+                node1_active = False  # 节点1不再有"进行中"状态
 
                 # 节点2：任务确认 - 优先使用 workflow_state 表的数据
                 if workflow_state and workflow_state.get("node2_status"):
@@ -283,34 +283,49 @@ def get_prescriptions_progress(limit: int = 20):
                     node2_active = node2_status == "active"
                     node2_desc = workflow_state.get("node2_desc", "等待任务启动")
                 else:
-                    # 没有 workflow_state 数据，使用追溯码判断
+                    # 没有 workflow_state 数据（未收到 ROS 状态），节点2为进行中
+                    # 或使用追溯码判断（已扫码识别则为完成）
                     node2_completed = scanned_1 > 0
-                    node2_active = node1_completed and not node2_completed
-                    node2_desc = f"已识别 {scanned_1}/{total_codes}" if node2_completed else ("等待扫码识别" if node2_active else "待扫码")
+                    node2_active = node1_completed and not node2_completed  # 节点1完成后，节点2为进行中
+                    node2_desc = f"已识别 {scanned_1}/{total_codes}" if node2_completed else "等待任务确认"
 
                 # 节点3：扫码复合 - 优先使用 workflow_state 表的数据
-                if workflow_state and workflow_state.get("node3_status"):
+                # 但如果节点2已完成，节点3必须为 active（进行中）
+                if workflow_state and workflow_state.get("node3_status") == "completed":
                     node3_status = workflow_state["node3_status"]
-                    node3_completed = node3_status == "completed"
-                    node3_active = node3_status == "active"
-                    node3_desc = workflow_state.get("node3_desc", "等待扫码复核")
+                    node3_completed = True
+                    node3_active = False
+                    node3_desc = workflow_state.get("node3_desc", "扫码复合完成")
                 else:
-                    # 没有 workflow_state 数据，使用追溯码判断
-                    node3_completed = scanned_2 > 0
-                    node3_active = node2_completed and not node3_completed
-                    node3_desc = f"已出库 {scanned_2}/{total_codes}" if node3_completed else ("等待出库确认" if node3_active else "待出库")
+                    # 如果节点2已完成，节点3必须为 active（进行中）
+                    if node2_completed:
+                        node3_completed = False
+                        node3_active = True
+                        node3_desc = "等待扫码复核"
+                    else:
+                        # 节点2未完成，节点3为 pending
+                        node3_completed = False
+                        node3_active = False
+                        node3_desc = "等待扫码复核"
 
                 # 节点4：站台交互 - 优先使用 workflow_state 表的数据
-                if workflow_state and workflow_state.get("node4_status"):
+                # 但如果节点3已完成，节点4必须为 active（进行中）
+                if workflow_state and workflow_state.get("node4_status") == "completed":
                     node4_status = workflow_state["node4_status"]
-                    node4_completed = node4_status == "completed"
-                    node4_active = node4_status == "active"
-                    node4_desc = workflow_state.get("node4_desc", "等待站台交互")
+                    node4_completed = True
+                    node4_active = False
+                    node4_desc = workflow_state.get("node4_desc", "站台交互完成")
                 else:
-                    # 没有 workflow_state 数据，使用追溯码判断
-                    node4_completed = total_codes > 0 and scanned_3 >= total_codes
-                    node4_active = node3_completed and not node4_completed
-                    node4_desc = f"已完成 {scanned_3}/{total_codes}" if node4_completed else ("等待最终确认" if node4_active else "待完成")
+                    # 如果节点3已完成，节点4必须为 active（进行中）
+                    if node3_completed:
+                        node4_completed = False
+                        node4_active = True
+                        node4_desc = "等待站台交互"
+                    else:
+                        # 节点3未完成，节点4为 pending
+                        node4_completed = False
+                        node4_active = False
+                        node4_desc = "等待站台交互"
 
                 # 判断当前活跃步骤
                 if not node1_completed:
@@ -354,14 +369,14 @@ def get_prescriptions_progress(limit: int = 20):
                         {
                             "id": 1,
                             "name": "开具处方",
-                            "status": "completed" if node1_completed else ("active" if node1_active else "pending"),
-                            "desc": "药师已确认处方" if node1_completed else ("等待药师确认" if node1_active else "待药师审核"),
+                            "status": "completed" if node1_completed else "pending",
+                            "desc": "医生已开具处方" if node1_completed else "待开具",
                         },
                         {
                             "id": 2,
                             "name": "任务确认",
                             "status": "completed" if node2_completed else ("active" if node2_active else "pending"),
-                            "desc": f"已识别 {scanned_1}/{total_codes}" if node2_completed else ("等待扫码识别" if node2_active else "待扫码"),
+                            "desc": node2_desc,
                         },
                         {
                             "id": 3,

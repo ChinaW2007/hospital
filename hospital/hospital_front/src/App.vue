@@ -181,7 +181,7 @@ html, body {
 
 .current-time {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 15px;
   color: #334155;
   font-weight: 500;
   letter-spacing: 0.5px;
@@ -218,7 +218,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 15px;
   background: rgba(37, 99, 235, 0.05);
   border: 1px solid rgba(37, 99, 235, 0.15);
   padding: 3px 8px;

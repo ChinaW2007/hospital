@@ -68,12 +68,13 @@ def check_port_reachable(host: str, port: int, timeout: int = 5) -> bool:
 
 def parse_ros_message(data: str) -> Dict[str, Any]:
     """
-    解析 ROS 消息，双版本适配
+    解析 ROS 消息，多版本适配
     
     支持格式：
     1. JSON 格式: {"status": "running_started", "prescription_code": "RX..."}
-    2. 分隔符格式: "running_started|RX..."
-    3. 纯字符串格式（旧版本兼容）: "running_started"
+    2. 分隔符格式（竖线）: "running_started|RX..."
+    3. 新格式（下划线）: "{prescription_code}_running-started"
+    4. 纯字符串格式（旧版本兼容）: "running_started"
     
     返回：
     - status: ROS 状态字符串
@@ -90,13 +91,31 @@ def parse_ros_message(data: str) -> Dict[str, Any]:
         except json.JSONDecodeError:
             pass
     
-    # 尝试解析分隔符格式
+    # 尝试解析分隔符格式（竖线）
     if "|" in data:
         parts = data.split("|")
         return {
             "status": parts[0],
             "prescription_code": parts[1] if len(parts) > 1 else None
         }
+    
+    # 尝试解析新格式: {prescription_code}_running-started
+    # 检查是否包含 "_running-started" 或 "_running_started"
+    if "_running-started" in data:
+        parts = data.split("_running-started")
+        if len(parts) >= 1:
+            return {
+                "status": "running-started",
+                "prescription_code": parts[0] if parts[0] else None
+            }
+    
+    if "_running_started" in data:
+        parts = data.split("_running_started")
+        if len(parts) >= 1:
+            return {
+                "status": "running_started",
+                "prescription_code": parts[0] if parts[0] else None
+            }
     
     # 纯字符串格式（旧版本兼容）
     return {
@@ -123,68 +142,37 @@ def update_prescription_workflow_db(prescription_code: str, status: str) -> bool
         engine = create_engine(settings.database_url)
         
         with engine.connect() as conn:
-            # 查询是否存在该处方记录
-            result = conn.execute(
-                text("SELECT id FROM prescription_workflow_state WHERE prescription_code = :code"),
-                {"code": prescription_code}
-            )
-            existing = result.fetchone()
-            
             # 根据 ROS 状态确定节点更新
             node_updates = get_node_updates_from_status(status)
             
-            if existing:
-                # 更新现有记录
-                update_sql = text("""
-                    UPDATE prescription_workflow_state 
-                    SET current_node = :current_node,
-                        node2_status = :node2_status,
-                        node2_desc = :node2_desc,
-                        node3_status = :node3_status,
-                        node3_desc = :node3_desc,
-                        node4_status = :node4_status,
-                        node4_desc = :node4_desc,
-                        ros_status = :ros_status,
-                        updated_at = NOW()
-                    WHERE prescription_code = :code
-                """)
-                conn.execute(update_sql, {
-                    "code": prescription_code,
-                    "current_node": node_updates["current_node"],
-                    "node2_status": node_updates["node2_status"],
-                    "node2_desc": node_updates["node2_desc"],
-                    "node3_status": node_updates["node3_status"],
-                    "node3_desc": node_updates["node3_desc"],
-                    "node4_status": node_updates["node4_status"],
-                    "node4_desc": node_updates["node4_desc"],
-                    "ros_status": status,
-                })
-            else:
-                # 创建新记录
-                insert_sql = text("""
-                    INSERT INTO prescription_workflow_state 
-                    (prescription_code, current_node, node2_status, node2_desc, 
-                     node3_status, node3_desc, node4_status, node4_desc, ros_status)
-                    VALUES (:code, :current_node, :node2_status, :node2_desc,
-                            :node3_status, :node3_desc, :node4_status, :node4_desc, :ros_status)
-                """)
-                conn.execute(insert_sql, {
-                    "code": prescription_code,
-                    "current_node": node_updates["current_node"],
-                    "node2_status": node_updates["node2_status"],
-                    "node2_desc": node_updates["node2_desc"],
-                    "node3_status": node_updates["node3_status"],
-                    "node3_desc": node_updates["node3_desc"],
-                    "node4_status": node_updates["node4_status"],
-                    "node4_desc": node_updates["node4_desc"],
-                    "ros_status": status,
-                })
-            
+            # 使用 UPSERT 语法：INSERT OR REPLACE（SQLite 特有）
+            # 如果 prescription_code 已存在，则替换；否则插入新记录
+            upsert_sql = text("""
+                INSERT OR REPLACE INTO prescription_workflow_state 
+                (prescription_code, current_node, node2_status, node2_desc, 
+                 node3_status, node3_desc, node4_status, node4_desc, ros_status, updated_at)
+                VALUES (:code, :current_node, :node2_status, :node2_desc,
+                        :node3_status, :node3_desc, :node4_status, :node4_desc, 
+                        :ros_status, datetime('now', 'localtime'))
+            """)
+            conn.execute(upsert_sql, {
+                "code": prescription_code,
+                "current_node": node_updates["current_node"],
+                "node2_status": node_updates["node2_status"],
+                "node2_desc": node_updates["node2_desc"],
+                "node3_status": node_updates["node3_status"],
+                "node3_desc": node_updates["node3_desc"],
+                "node4_status": node_updates["node4_status"],
+                "node4_desc": node_updates["node4_desc"],
+                "ros_status": status,
+            })
             conn.commit()
-            logger.info(f"✅ 已更新处方流程状态: {prescription_code} -> {status}")
+            print(f"[成功] 更新处方流程状态: {prescription_code} -> {status}")
+            logger.info(f"已更新处方流程状态: {prescription_code} -> {status}")
             return True
     
     except Exception as e:
+        print(f"[失败] 更新处方流程状态失败: {e}")
         logger.error(f"更新处方流程状态失败: {e}")
         return False
 
@@ -192,6 +180,10 @@ def update_prescription_workflow_db(prescription_code: str, status: str) -> bool
 def get_node_updates_from_status(status: str) -> Dict[str, Any]:
     """
     根据 ROS 状态获取节点更新数据
+    
+    支持新旧两种格式：
+    - 新格式（横线）: running-started, running-step1-navigate-to-pharmacy, error-step1-cannot-reach-pharmacy 等
+    - 旧格式（下划线）: running_started, running_step1_navigate_to_pharmacy, error_step1_cannot_reach_pharmacy 等
     
     Returns:
         Dict: 包含各节点状态和描述的字典
@@ -207,12 +199,30 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
     }
     
     # ===== 任务启动 =====
-    if status == "running_started":
+    # 新格式（节点2直接完成）
+    if status == "running-started":
+        defaults["current_node"] = 2
+        defaults["node2_status"] = "completed"
+        defaults["node2_desc"] = "任务确认完成"
+    
+    # 旧格式（节点2为进行中）
+    elif status == "running_started":
         defaults["current_node"] = 2
         defaults["node2_status"] = "active"
         defaults["node2_desc"] = "任务已确认"
     
-    # ===== 步骤1: 前往药房 =====
+    # ===== Step 1: 前往药房 =====
+    # 新格式（横线）
+    elif status == "running-step1-navigate-to-pharmacy":
+        defaults["current_node"] = 2
+        defaults["node2_status"] = "active"
+        defaults["node2_desc"] = "正在前往药房"
+    
+    elif status == "error-step1-cannot-reach-pharmacy":
+        defaults["node2_status"] = "active"
+        defaults["node2_desc"] = "到达药房失败"
+    
+    # 旧格式（下划线）
     elif status == "running_step1_navigate_to_pharmacy":
         defaults["current_node"] = 2
         defaults["node2_status"] = "active"
@@ -222,25 +232,56 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
         defaults["node2_status"] = "active"
         defaults["node2_desc"] = "到达药房失败"
     
-    # ===== 步骤2: 抓药 =====
+    # ===== Step 2: 抓药 =====
+    # 新格式
+    elif status == "running-step2-pick":
+        defaults["current_node"] = 2
+        defaults["node2_status"] = "active"
+        defaults["node2_desc"] = "正在抓药"
+    
+    # 旧格式
     elif status == "running_step2_pick":
         defaults["current_node"] = 2
         defaults["node2_status"] = "active"
         defaults["node2_desc"] = "正在抓药"
     
-    # ===== 步骤3: 前往医生/患者 =====
+    # ===== Step 3: 前往病房 =====
+    # 新格式（注意拼写：doctor）
+    elif status == "running-step3-navigate-doctor":
+        defaults["current_node"] = 3
+        defaults["node2_status"] = "completed"
+        defaults["node2_desc"] = "任务确认完成"
+        defaults["node3_status"] = "active"
+        defaults["node3_desc"] = "前往病房"
+    
+    elif status == "error-step3-cannot-reach-patient-room":
+        defaults["node3_status"] = "active"
+        defaults["node3_desc"] = "无法到达病房"
+    
+    # 旧格式（注意拼写：docter）
     elif status == "running_step3_navigate_docter":
         defaults["current_node"] = 3
         defaults["node2_status"] = "completed"
         defaults["node2_desc"] = "任务确认完成"
         defaults["node3_status"] = "active"
-        defaults["node3_desc"] = "前往医生/患者"
+        defaults["node3_desc"] = "前往病房"
     
     elif status == "error_step3_cannot_reach_patient_room":
         defaults["node3_status"] = "active"
-        defaults["node3_desc"] = "无法到达患者房间"
+        defaults["node3_desc"] = "无法到达病房"
     
-    # ===== 步骤4: 送药 =====
+    # ===== Step 4: 送药 =====
+    # 新格式
+    elif status == "running-step4-deliver-medicine":
+        defaults["current_node"] = 4
+        defaults["node2_status"] = "completed"
+        defaults["node2_desc"] = "任务确认完成"
+        defaults["node3_status"] = "completed"
+        defaults["node3_desc"] = "扫码复合完成"
+        defaults["node4_status"] = "active"
+        defaults["node4_desc"] = "正在送药"
+    
+    # 旧格式
     elif status == "running_step4_deliver_medicine":
         defaults["current_node"] = 4
         defaults["node2_status"] = "completed"
@@ -250,7 +291,18 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
         defaults["node4_status"] = "active"
         defaults["node4_desc"] = "正在送药"
     
-    # ===== 步骤5: 返回 =====
+    # ===== Step 5: 返回 =====
+    # 新格式
+    elif status == "running-step5-return":
+        defaults["current_node"] = 4
+        defaults["node4_status"] = "active"
+        defaults["node4_desc"] = "正在返回起点"
+    
+    elif status == "error-step5-cannot-return-to-home":
+        defaults["node4_status"] = "active"
+        defaults["node4_desc"] = "无法返回起点"
+    
+    # 旧格式
     elif status == "running_step5_return":
         defaults["current_node"] = 4
         defaults["node4_status"] = "active"
@@ -276,10 +328,11 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
 def handle_robot_status(data: str) -> None:
     """
     处理机器人状态消息，更新全局状态
-    支持双版本解析：JSON格式 / 分隔符格式 / 纯字符串格式
+    支持多版本解析：JSON格式 / 分隔符格式 / 新格式 / 纯字符串格式
     
     ROS 状态映射：
-    - running_started: 任务启动 → 节点2 任务确认 active
+    - running-started: 任务启动（新格式）→ 节点2 任务确认 completed
+    - running_started: 任务启动（旧格式）→ 节点2 任务确认 active
     - running_step1_navigate_to_pharmacy: 前往药房
     - running_step2_pick: 正在抓药
     - running_step3_navigate_docter: 前往医生/患者 → 节点3 扫码复合 active
@@ -287,7 +340,7 @@ def handle_robot_status(data: str) -> None:
     - running_step5_return: 正在返回
     - end: 任务完成 → 全部节点 completed
     """
-    # 双版本解析
+    # 多版本解析
     parsed_msg = parse_ros_message(data)
     status = parsed_msg["status"]
     prescription_code = parsed_msg["prescription_code"]
@@ -305,8 +358,17 @@ def handle_robot_status(data: str) -> None:
         if step["status"] != "completed":
             step["status"] = "pending"
     
-    # ===== 任务启动 =====
-    if status == "running_started":
+    # ===== 任务启动（新格式：running-started，节点2直接完成）=====
+    if status == "running-started":
+        _ros_state["current_step"] = 2
+        steps[0]["status"] = "completed"
+        steps[0]["desc"] = "处方已开具"
+        steps[1]["status"] = "completed"
+        steps[1]["desc"] = "任务确认完成"
+        logger.info("🟢 任务启动 - 任务确认完成")
+    
+    # ===== 任务启动（旧格式：running_started，节点2为进行中）=====
+    elif status == "running_started":
         _ros_state["current_step"] = 2
         steps[0]["status"] = "completed"
         steps[0]["desc"] = "处方已开具"
@@ -398,10 +460,12 @@ async def ros_websocket_listener() -> None:
     周期性检测端口可达性，自动重连
     """
     if websockets is None:
+        print("[错误] websockets 库未安装，无法启动 ROS 监听")
         logger.error("websockets 库未安装，无法启动 ROS 监听")
         return
     
     ws_url = get_ros_ws_url()
+    print(f"[ROS] WebSocket 目标地址: {ws_url}")
     logger.info(f"ROS WebSocket 监听服务启动，目标地址: {ws_url}")
     
     while True:
@@ -452,11 +516,14 @@ async def ros_websocket_listener() -> None:
                             # 解析 rosbridge 消息格式
                             if "msg" in msg_data and "data" in msg_data["msg"]:
                                 data = msg_data["msg"]["data"]
+                                print(f"[收到] ROS 消息: {data}")
                                 handle_robot_status(data)
                                 
                                 # 任务确认时触发语音播报（使用解析后的 status）
                                 parsed_msg = parse_ros_message(data)
-                                if parsed_msg["status"] == "running_started":
+                                status = parsed_msg["status"]
+                                # 支持新旧两种格式：running-started 和 running_started
+                                if status == "running-started" or status == "running_started":
                                     logger.info("🎵 任务确认 - 触发语音播报")
                                     # 异步调用语音播报服务
                                     try:
@@ -498,5 +565,8 @@ async def ros_websocket_listener() -> None:
 
 async def start_ros_listener() -> None:
     """启动 ROS 监听服务（供 lifespan 调用）"""
-    logger.info("🚀 启动 ROS WebSocket 监听服务...")
+    print("=" * 60)
+    print("ROS WebSocket 监听服务启动中...")
+    print("=" * 60)
+    logger.info("启动 ROS WebSocket 监听服务...")
     await ros_websocket_listener()
