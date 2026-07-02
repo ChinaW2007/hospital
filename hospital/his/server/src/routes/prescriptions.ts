@@ -113,6 +113,7 @@ router.get('/', async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = parseInt(req.query.pageSize as string) || 10;
     const status = req.query.status as string;
+    const prescriptionType = req.query.prescription_type as string;
     const offset = (page - 1) * pageSize;
     const user = req.user!;
 
@@ -128,6 +129,11 @@ router.get('/', async (req: Request, res: Response) => {
     if (status) {
       conditions.push('p.status = ?');
       params.push(status);
+    }
+
+    if (prescriptionType) {
+      conditions.push('p.prescription_type = ?');
+      params.push(prescriptionType);
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

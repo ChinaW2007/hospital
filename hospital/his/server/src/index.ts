@@ -20,7 +20,8 @@ if (!verifyIntegrity()) {
 }
 
 const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.PORT || 3001);
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -51,8 +52,8 @@ app.use('/api/medicine-locations', medicineLocationRoutes);
 app.use('/api/medicine-trace-codes', medicineTraceCodeRoutes);
 
 // Start server (MySQL pool is initialized in db.ts)
-const server = app.listen(PORT, () => {
-  console.log(`🚀 服务器已启动: http://localhost:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`🚀 服务器已启动: http://${HOST}:${PORT}`);
   console.log('📋 测试账号:');
   console.log('   医生: doctor1 / 123456');
   console.log('   药师: pharmacist1 / 123456');
