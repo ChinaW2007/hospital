@@ -137,6 +137,9 @@ export const medicineTraceCodeApi = {
   scanByCode: (trace_code: string, prescription_id?: number) =>
     api.post('/medicine-trace-codes/scan-by-code', { trace_code, prescription_id }).then((r) => r.data),
 
+  lookup: (trace_code: string) =>
+    api.get('/medicine-trace-codes/lookup', { params: { trace_code } }).then((r) => r.data),
+
   generateAll: () =>
     api.post('/medicine-trace-codes/generate-all').then((r) => r.data),
 

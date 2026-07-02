@@ -194,8 +194,8 @@ def get_prescriptions_progress(limit: int = 20):
     每个处方对应一条进度条：
     - 节点1（开具处方）：药师确认处方后高亮
     - 节点2（任务确认）：ROS 任务启动后高亮（优先使用 prescription_workflow_state 表）
-    - 节点3（扫码复合）：药品被扫第2次后高亮
-    - 节点4（站台交互）：药品被扫第3次后高亮
+    - 节点3（扫码复合）：当前处方全部追溯码扫到第2次后高亮
+    - 节点4（站台交互）：当前处方全部追溯码扫到第3次后高亮
 
     返回每个处方的 prescription_code、patient_name、各节点状态
     """
@@ -230,15 +230,30 @@ def get_prescriptions_progress(limit: int = 20):
                 prescription_code = presc["prescription_code"]
 
                 # 查询该处方关联的追溯码扫描状态
-                cursor.execute("""
-                    SELECT
-                        COUNT(*) as total_codes,
-                        SUM(CASE WHEN scan1_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_1,
-                        SUM(CASE WHEN scan2_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_2,
-                        SUM(CASE WHEN scan3_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_3
-                    FROM medicine_trace_codes
-                    WHERE prescription_id = %s
-                """, (presc_id,))
+                try:
+                    cursor.execute("""
+                        SELECT
+                            COUNT(*) as total_codes,
+                            SUM(CASE WHEN scan1_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_1,
+                            SUM(CASE WHEN scan2_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_2,
+                            SUM(CASE WHEN scan3_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_3
+                        FROM (
+                            SELECT DISTINCT tc.id, tc.scan1_time, tc.scan2_time, tc.scan3_time
+                            FROM medicine_trace_codes tc
+                            LEFT JOIN prescription_trace_codes ptc ON ptc.trace_code_id = tc.id
+                            WHERE ptc.prescription_id = %s OR tc.prescription_id = %s
+                        ) linked_codes
+                    """, (presc_id, presc_id))
+                except pymysql.Error:
+                    cursor.execute("""
+                        SELECT
+                            COUNT(*) as total_codes,
+                            SUM(CASE WHEN scan1_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_1,
+                            SUM(CASE WHEN scan2_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_2,
+                            SUM(CASE WHEN scan3_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_3
+                        FROM medicine_trace_codes
+                        WHERE prescription_id = %s
+                    """, (presc_id,))
                 scan_stats = cursor.fetchone()
 
                 total_codes = scan_stats["total_codes"] or 0
@@ -309,43 +324,27 @@ def get_prescriptions_progress(limit: int = 20):
                     node2_active = node1_completed and not node2_completed  # 节点1完成后，节点2为进行中
                     node2_desc = f"已识别 {scanned_1}/{total_codes}" if node2_completed else "等待任务确认"
 
-                # 节点3：扫码复合 - 优先使用 workflow_state 表的数据
-                # 但如果节点2已完成，节点3必须为 active（进行中）
-                if workflow_state and workflow_state.get("node3_status") == "completed":
-                    node3_status = workflow_state["node3_status"]
-                    node3_completed = True
-                    node3_active = False
-                    node3_desc = workflow_state.get("node3_desc", "扫码复合完成")
-                else:
-                    # 如果节点2已完成，节点3必须为 active（进行中）
-                    if node2_completed:
-                        node3_completed = False
-                        node3_active = True
-                        node3_desc = "等待扫码复核"
-                    else:
-                        # 节点2未完成，节点3为 pending
-                        node3_completed = False
-                        node3_active = False
-                        node3_desc = "等待扫码复核"
+                has_trace_codes = total_codes > 0
 
-                # 节点4：站台交互 - 优先使用 workflow_state 表的数据
-                # 但如果节点3已完成，节点4必须为 active（进行中）
-                if workflow_state and workflow_state.get("node4_status") == "completed":
-                    node4_status = workflow_state["node4_status"]
-                    node4_completed = True
-                    node4_active = False
-                    node4_desc = workflow_state.get("node4_desc", "站台交互完成")
+                # 节点3：扫码复合 - 当前处方全部追溯码扫到第2次后完成
+                node3_completed = has_trace_codes and scanned_2 == total_codes
+                node3_active = node2_completed and not node3_completed
+                if node3_completed:
+                    node3_desc = f"已出库 {scanned_2}/{total_codes}"
+                elif node3_active:
+                    node3_desc = f"已出库 {scanned_2}/{total_codes}" if has_trace_codes else "等待处方追溯码"
                 else:
-                    # 如果节点3已完成，节点4必须为 active（进行中）
-                    if node3_completed:
-                        node4_completed = False
-                        node4_active = True
-                        node4_desc = "等待站台交互"
-                    else:
-                        # 节点3未完成，节点4为 pending
-                        node4_completed = False
-                        node4_active = False
-                        node4_desc = "等待站台交互"
+                    node3_desc = "等待扫码复核"
+
+                # 节点4：站台交互 - 当前处方全部追溯码扫到第3次后完成
+                node4_completed = has_trace_codes and scanned_3 == total_codes
+                node4_active = node3_completed and not node4_completed
+                if node4_completed:
+                    node4_desc = f"已完成 {scanned_3}/{total_codes}"
+                elif node4_active:
+                    node4_desc = f"已完成 {scanned_3}/{total_codes}"
+                else:
+                    node4_desc = "等待站台交互"
 
                 # 判断当前活跃步骤
                 if not node1_completed:
@@ -402,13 +401,13 @@ def get_prescriptions_progress(limit: int = 20):
                             "id": 3,
                             "name": "扫码复合",
                             "status": "completed" if node3_completed else ("active" if node3_active else "pending"),
-                            "desc": f"已出库 {scanned_2}/{total_codes}" if node3_completed else ("等待出库确认" if node3_active else "待出库"),
+                            "desc": node3_desc,
                         },
                         {
                             "id": 4,
                             "name": "站台交互",
                             "status": "completed" if node4_completed else ("active" if node4_active else "pending"),
-                            "desc": f"已完成 {scanned_3}/{total_codes}" if node4_completed else ("等待最终确认" if node4_active else "待完成"),
+                            "desc": node4_desc,
                         },
                     ],
                 })

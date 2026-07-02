@@ -5,3 +5,4 @@ sqlalchemy
 pydantic-settings
 websockets
 pymysql
+requests

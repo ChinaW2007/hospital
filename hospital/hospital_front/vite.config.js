@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     host: '0.0.0.0',  // 监听所有地址（包括IPv4）
-    port: 5175,
+    port: 5173,
+    strictPort: true,
   },
 })

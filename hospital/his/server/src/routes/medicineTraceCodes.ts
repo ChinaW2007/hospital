@@ -60,7 +60,7 @@ const MEDICINE_PREFIX_MAP: Record<string, string> = {
 // 从数据库查询所有前缀（优先），表不存在或为空时回退到硬编码
 const getPrefixMap = async (conn: any): Promise<Map<number, string>> => {
   try {
-    const [rows] = await conn.query<any[]>('SELECT medicine_id, prefix FROM medicine_trace_prefixes');
+    const [rows] = await conn.query('SELECT medicine_id, prefix FROM medicine_trace_prefixes');
     if (rows.length > 0) {
       return new Map(rows.map((r: any) => [r.medicine_id, r.prefix]));
     }
@@ -68,7 +68,7 @@ const getPrefixMap = async (conn: any): Promise<Map<number, string>> => {
     // 表可能还没创建，回退到硬编码
   }
   // 回退：按药品名匹配硬编码前缀
-  const [medicines] = await conn.query<any[]>('SELECT id, name FROM medicines');
+  const [medicines] = await conn.query('SELECT id, name FROM medicines');
   const map = new Map<number, string>();
   for (const m of medicines) {
     if (MEDICINE_PREFIX_MAP[m.name]) {
@@ -94,6 +94,22 @@ const randomTraceCode = (prefix?: string): string => {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
+};
+
+const validatePrescriptionLink = (record: any, prescriptionId: number | null, res: Response): boolean => {
+  const linkedPrescriptionId = record.prescription_id ? Number(record.prescription_id) : null;
+
+  if (!linkedPrescriptionId) {
+    res.status(400).json({ error: '该追溯码未关联处方，不能扫码' });
+    return false;
+  }
+
+  if (prescriptionId && linkedPrescriptionId !== prescriptionId) {
+    res.status(400).json({ error: '该追溯码不属于当前处方' });
+    return false;
+  }
+
+  return true;
 };
 
 // POST /api/medicine-trace-codes — create user's code, then auto-generate remaining based on stock
@@ -296,15 +312,65 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
 
     const [checkRows] = await pool.query<any[]>(
-      'SELECT id FROM medicine_trace_codes WHERE id = ?', [id]
+      'SELECT id, prescription_id FROM medicine_trace_codes WHERE id = ?', [id]
     );
     if (checkRows.length === 0) {
       res.status(404).json({ error: '追溯码不存在' });
       return;
     }
 
+    if (checkRows[0].prescription_id) {
+      res.status(400).json({ error: '该追溯码已关联处方，不能删除' });
+      return;
+    }
+
+    try {
+      const [linkRows] = await pool.query<any[]>(
+        'SELECT COUNT(*) AS cnt FROM prescription_trace_codes WHERE trace_code_id = ?',
+        [id]
+      );
+      if ((linkRows[0]?.cnt || 0) > 0) {
+        res.status(400).json({ error: '该追溯码已关联处方，不能删除' });
+        return;
+      }
+    } catch (err: any) {
+      if (err.code !== 'ER_NO_SUCH_TABLE') {
+        throw err;
+      }
+    }
+
     await pool.query('DELETE FROM medicine_trace_codes WHERE id = ?', [id]);
     res.json({ message: '追溯码已删除' });
+  } catch (err: any) {
+    res.status(500).json({ error: '服务器错误: ' + err.message });
+  }
+});
+
+// GET /api/medicine-trace-codes/lookup — lookup trace code without advancing scan status
+router.get('/lookup', async (req: Request, res: Response) => {
+  try {
+    const traceCode = String(req.query.trace_code || '').trim();
+    if (!traceCode) {
+      res.status(400).json({ error: '追溯码不能为空' });
+      return;
+    }
+
+    const [rows] = await pool.query<any[]>(
+      `SELECT tc.*, m.id AS medicine_id, m.name AS medicine_name, m.generic_name,
+              m.specification, m.drug_form, m.manufacturer, m.unit, m.price, m.stock,
+              m.category, m.is_narcotic, m.image_url
+       FROM medicine_trace_codes tc
+       JOIN medicines m ON tc.medicine_id = m.id
+       WHERE tc.trace_code = ?`,
+      [traceCode]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: '追溯码未找到' });
+      return;
+    }
+
+    res.json(rows[0]);
   } catch (err: any) {
     res.status(500).json({ error: '服务器错误: ' + err.message });
   }
@@ -326,6 +392,10 @@ router.put('/:id/scan', async (req: Request, res: Response) => {
     }
 
     const record = rows[0];
+    if (!validatePrescriptionLink(record, prescriptionId, res)) {
+      return;
+    }
+
     const currentStatus: string = record.status;
 
     let updateSql: string;
@@ -435,6 +505,10 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
     }
 
     const record = rows[0];
+    if (!validatePrescriptionLink(record, prescriptionId, res)) {
+      return;
+    }
+
     const userId = (req as any).user?.id;
 
     // Advance scan status

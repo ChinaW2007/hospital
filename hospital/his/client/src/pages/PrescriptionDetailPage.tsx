@@ -108,12 +108,13 @@ export default function PrescriptionDetailPage() {
         ) : (
           <table className="glass-table">
             <thead>
-              <tr><th>药品名称</th><th>规格</th><th>用量</th><th>用法</th><th>频次</th><th>天数</th><th>数量</th><th>备注</th></tr>
+              <tr><th>药品名称</th><th>追溯码</th><th>规格</th><th>用量</th><th>用法</th><th>频次</th><th>天数</th><th>数量</th><th>备注</th></tr>
             </thead>
             <tbody>
               {prescription.items.map((item, i) => (
                 <motion.tr key={item.id} variants={rowAnim} custom={i} initial="hidden" animate="visible">
                   <td><strong>{item.medicine_name}</strong></td>
+                  <td><code style={{ fontSize: 11, wordBreak: 'break-all' }}>{item.trace_code || '-'}</code></td>
                   <td style={{ fontSize: 13 }}>{item.specification}</td>
                   <td>{item.dosage}</td>
                   <td>{item.usage_method}</td>

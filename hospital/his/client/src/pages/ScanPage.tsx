@@ -55,6 +55,16 @@ export default function ScanPage() {
 
   const processCodeRef = useRef<(code: string) => void>(() => {});
 
+  const getCurrentPrescriptionId = () => {
+    const pid = parseInt(prescriptionId, 10);
+    if (!prescriptionId.trim() || Number.isNaN(pid)) {
+      setToast({ text: '请先输入处方ID', type: 'error' });
+      setTimeout(() => setToast(null), 2000);
+      return null;
+    }
+    return pid;
+  };
+
   const stopScanner = async () => {
     if (scannerRef.current) {
       try { await scannerRef.current.stop(); } catch (e) {}
@@ -96,11 +106,12 @@ export default function ScanPage() {
 
   const processCode = async (code: string) => {
     if (busyRef.current || code === lastCodeRef.current) return;
+    const pid = getCurrentPrescriptionId();
+    if (!pid) return;
     busyRef.current = true;
     lastCodeRef.current = code;
 
     try {
-      const pid = prescriptionId ? parseInt(prescriptionId) : undefined;
       const data = await medicineTraceCodeApi.scanByCode(code, pid);
       playBeep();
       const newEntry: ScanEntry = {
@@ -137,12 +148,13 @@ export default function ScanPage() {
 
   const handleSearch = async () => {
     if (!searchCode.trim()) return;
+    const pid = getCurrentPrescriptionId();
+    if (!pid) return;
     try {
-      // Just look up — don't advance
       const res = await fetch('/api/medicine-trace-codes/scan-by-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ trace_code: searchCode.trim() }),
+        body: JSON.stringify({ trace_code: searchCode.trim(), prescription_id: pid }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '未找到');
