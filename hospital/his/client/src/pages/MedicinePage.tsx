@@ -5,8 +5,28 @@ import type { Medicine, MedicineFormData, MedicineTraceCode } from '../types';
 import { TRACE_STATUS_LABELS, TRACE_STATUS_COLORS } from '../types';
 import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
+import ModuleIcon from '../components/ModuleIcon';
+import GlassSelect from '../components/GlassSelect';
+import { formatDateTime } from '../utils/date';
 
 const emptyForm: MedicineFormData = { name: '', generic_name: '', specification: '', drug_form: '', manufacturer: '', unit: '盒', price: '', stock: '', category: '处方药', is_narcotic: false, image_url: '', trace_code_prefix: '' };
+const DRUG_FORM_OPTIONS = [
+  { value: '', label: '请选择' },
+  { value: '片剂', label: '片剂' },
+  { value: '胶囊剂', label: '胶囊剂' },
+  { value: '注射剂', label: '注射剂' },
+  { value: '口服液', label: '口服液' },
+  { value: '颗粒剂', label: '颗粒剂' },
+  { value: '外用', label: '外用' },
+];
+const MEDICINE_CATEGORY_OPTIONS = [
+  { value: '处方药', label: '处方药' },
+  { value: '非处方药', label: '非处方药' },
+];
+const NARCOTIC_OPTIONS = [
+  { value: '0', label: '否' },
+  { value: '1', label: '是' },
+];
 
 const rowAnim = {
   hidden: { opacity: 0, y: 10 },
@@ -208,14 +228,14 @@ export default function MedicinePage() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <motion.button className="glass-btn glass-btn--outline" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={async () => {
-            if (!confirm('⚠️ 确定要删除全部追溯码并重新生成吗？\n\n此操作不可撤销，将根据每种药品的库存数量和固定前缀重新生成追溯码。')) return;
+            if (!confirm('确定要删除全部追溯码并重新生成吗？\n\n此操作不可撤销，将根据每种药品的库存数量和固定前缀重新生成追溯码。')) return;
             try {
               const res = await medicineTraceCodeApi.regenerateAll();
               showToast(res.message, 'success');
               loadList(page, keyword);
             } catch (err: any) { showToast(err.response?.data?.error || '操作失败', 'error'); }
           }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            🔄 清空重新生成
+            清空重新生成
           </motion.button>
           <motion.button className="glass-btn glass-btn--primary" onClick={openNew} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             ＋ 新增药品
@@ -245,15 +265,7 @@ export default function MedicinePage() {
             </div>
             <div className="form-group">
               <label>剂型</label>
-              <select className="glass-input" value={form.drug_form} onChange={(e) => setForm({ ...form, drug_form: e.target.value })}>
-                <option value="">请选择</option>
-                <option value="片剂">片剂</option>
-                <option value="胶囊剂">胶囊剂</option>
-                <option value="注射剂">注射剂</option>
-                <option value="口服液">口服液</option>
-                <option value="颗粒剂">颗粒剂</option>
-                <option value="外用">外用</option>
-              </select>
+              <GlassSelect value={form.drug_form} options={DRUG_FORM_OPTIONS} onChange={(drug_form) => setForm({ ...form, drug_form })} />
             </div>
             <div className="form-group">
               <label>规格</label>
@@ -277,17 +289,11 @@ export default function MedicinePage() {
             </div>
             <div className="form-group">
               <label>药品分类</label>
-              <select className="glass-input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                <option value="处方药">处方药</option>
-                <option value="非处方药">非处方药</option>
-              </select>
+              <GlassSelect value={form.category} options={MEDICINE_CATEGORY_OPTIONS} onChange={(category) => setForm({ ...form, category })} />
             </div>
             <div className="form-group">
               <label>麻醉/精神药品</label>
-              <select className="glass-input" value={form.is_narcotic ? '1' : '0'} onChange={(e) => setForm({ ...form, is_narcotic: e.target.value === '1' })}>
-                <option value="0">否</option>
-                <option value="1">是</option>
-              </select>
+              <GlassSelect value={form.is_narcotic ? '1' : '0'} options={NARCOTIC_OPTIONS} onChange={(value) => setForm({ ...form, is_narcotic: value === '1' })} />
             </div>
             <div className="form-group form-group--full">
               <label>图片URL</label>
@@ -317,12 +323,12 @@ export default function MedicinePage() {
         {loading ? (
           <div className="loading">加载中...</div>
         ) : medicines.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">💊</div><p>暂无药品数据</p></div>
+          <div className="empty-state"><div className="empty-icon"><ModuleIcon name="medicines" size={48} /></div><p>暂无药品数据</p></div>
         ) : (
           <>
-            <table className="glass-table">
+            <table className="glass-table medicine-table">
               <thead>
-                <tr><th></th><th>药品名称</th><th>规格</th><th>厂家</th><th>单位</th><th>单价</th><th>库存</th><th>操作</th></tr>
+                <tr><th>追溯码</th><th>药品名称</th><th>规格</th><th>厂家</th><th>单位</th><th>单价</th><th>库存</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <AnimatePresence>
@@ -331,7 +337,7 @@ export default function MedicinePage() {
                       <motion.tr variants={rowAnim} custom={i} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
                       <td>
                         <button className="expand-btn" onClick={() => toggleExpand(m.id)}>
-                          {expandedMedicineId === m.id ? '▼' : '▶'}
+                          {expandedMedicineId === m.id ? '收起' : '展开'}
                         </button>
                       </td>
                       <td>
@@ -359,7 +365,7 @@ export default function MedicinePage() {
                         <td colSpan={8}>
                           <div className="trace-sub-panel">
                             <div className="trace-sub-header">
-                              <h4>📱 追溯码 — {m.name}（共 {traceTotal} 条）{m.trace_code_prefix && <span style={{ fontSize: 12, color: 'var(--blue)', background: 'rgba(74,144,217,0.1)', padding: '2px 8px', borderRadius: 4, marginLeft: 8 }}>前缀: {m.trace_code_prefix}</span>}</h4>
+                              <h4>追溯码 — {m.name}（共 {traceTotal} 条）{m.trace_code_prefix && <span style={{ fontSize: 12, color: 'var(--blue)', background: 'rgba(74,144,217,0.1)', padding: '2px 8px', borderRadius: 4, marginLeft: 8 }}>前缀: {m.trace_code_prefix}</span>}</h4>
                             </div>
                             <div className="trace-add-form" style={{ marginBottom: 14 }}>
                               <input className="glass-input" style={{ flex: 1, maxWidth: 320 }} placeholder="输入追溯码..." value={newTraceCode} onChange={(e) => setNewTraceCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddTraceCode(m.id); }} />
@@ -396,13 +402,13 @@ export default function MedicinePage() {
                                             {TRACE_STATUS_LABELS[tc.status]}
                                           </span>
                                         </td>
-                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{tc.scan1_time ? new Date(tc.scan1_time).toLocaleString('zh-CN') : '-'}</td>
-                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{tc.scan2_time ? new Date(tc.scan2_time).toLocaleString('zh-CN') : '-'}</td>
-                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{tc.scan3_time ? new Date(tc.scan3_time).toLocaleString('zh-CN') : '-'}</td>
+                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{formatDateTime(tc.scan1_time)}</td>
+                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{formatDateTime(tc.scan2_time)}</td>
+                                        <td style={{ fontSize: 12, textAlign: 'center' }}>{formatDateTime(tc.scan3_time)}</td>
                                         <td style={{ textAlign: 'center' }}>
                                           <div className="action-btns" style={{ flexWrap: 'nowrap', justifyContent: 'center' }}>
                                             <motion.button className="glass-btn glass-btn--outline glass-btn--xs" onClick={() => setTraceConfirm({ type: 'scan', tcId: tc.id, label: tc.status === 'pending' ? '识别' : tc.status === 'scanned_identify' ? '出库' : '确认' })} disabled={tc.status === 'scanned_confirm' || isBusy(tc.id)} whileHover={tc.status === 'scanned_confirm' || isBusy(tc.id) ? {} : { scale: 1.05 }} whileTap={tc.status === 'scanned_confirm' || isBusy(tc.id) ? {} : { scale: 0.95 }}>
-                                              {tc.status === 'pending' ? '识别' : tc.status === 'scanned_identify' ? '出库' : tc.status === 'scanned_outbound' ? '确认' : '✓'}
+                                              {tc.status === 'pending' ? '识别' : tc.status === 'scanned_identify' ? '出库' : tc.status === 'scanned_outbound' ? '确认' : '完成'}
                                             </motion.button>
                                             {tc.status !== 'pending' && (
                                               <motion.button className="glass-btn glass-btn--success glass-btn--xs" onClick={() => setTraceConfirm({ type: 'unscan', tcId: tc.id, label: '撤回' })} disabled={isBusy(tc.id)} whileHover={isBusy(tc.id) ? {} : { scale: 1.05 }} whileTap={isBusy(tc.id) ? {} : { scale: 0.95 }}>撤回</motion.button>

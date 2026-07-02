@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { prescriptionApi } from '../services/api';
 import type { Prescription } from '../types';
-import { STATUS_LABELS, STATUS_COLORS } from '../types';
+import { STATUS_LABELS, STATUS_COLORS, PRESCRIPTION_TYPE_LABELS } from '../types';
+import ModuleIcon from '../components/ModuleIcon';
+import GlassSelect from '../components/GlassSelect';
+import { formatDateTime } from '../utils/date';
 
 const STATUS_FILTERS = [
   { value: '', label: '全部' },
@@ -11,6 +14,11 @@ const STATUS_FILTERS = [
   { value: 'approved', label: '已通过' },
   { value: 'rejected', label: '已驳回' },
   { value: 'dispensed', label: '已发药' },
+];
+
+const PRESCRIPTION_TYPE_OPTIONS = [
+  { value: '', label: '全部类型' },
+  ...Object.entries(PRESCRIPTION_TYPE_LABELS).map(([value, label]) => ({ value, label })),
 ];
 
 const rowAnim = {
@@ -23,15 +31,17 @@ export default function PrescriptionListPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Prescription | null>(null);
   const pageSize = 10;
 
-  const load = async (p: number, status: string) => {
+  const load = async (p: number, status: string, type: string) => {
     setLoading(true);
     try {
       const params: any = { page: p, pageSize };
       if (status) params.status = status;
+      if (type) params.prescription_type = type;
       const data = await prescriptionApi.list(params);
       setPrescriptions(data.list);
       setTotal(data.total);
@@ -39,7 +49,7 @@ export default function PrescriptionListPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(page, statusFilter); }, [page, statusFilter]);
+  useEffect(() => { load(page, statusFilter, typeFilter); }, [page, statusFilter, typeFilter]);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -48,7 +58,7 @@ export default function PrescriptionListPage() {
     try {
       await prescriptionApi.delete(confirmDelete.id);
       setConfirmDelete(null);
-      load(page, statusFilter);
+      load(page, statusFilter, typeFilter);
     } catch (err: any) { alert(err.response?.data?.error || '删除失败'); }
   };
 
@@ -61,8 +71,8 @@ export default function PrescriptionListPage() {
         </div>
       </motion.div>
 
-      <motion.div className="flex-between" style={{ marginBottom: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <motion.div className="flex-between" style={{ marginBottom: 16, gap: 12, flexWrap: 'wrap' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {STATUS_FILTERS.map((f) => (
             <motion.button
               key={f.value}
@@ -74,13 +84,21 @@ export default function PrescriptionListPage() {
             </motion.button>
           ))}
         </div>
+        <div style={{ width: 180 }}>
+          <GlassSelect
+            value={typeFilter}
+            options={PRESCRIPTION_TYPE_OPTIONS}
+            onChange={(v) => { setPage(1); setTypeFilter(v); }}
+            placeholder="处方类型"
+          />
+        </div>
       </motion.div>
 
       <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
         {loading ? (
           <div className="loading">加载中...</div>
         ) : prescriptions.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">📋</div><p>暂无处方记录</p></div>
+          <div className="empty-state"><div className="empty-icon"><ModuleIcon name="prescriptions" size={48} /></div><p>暂无处方记录</p></div>
         ) : (
           <>
             <table className="glass-table" style={{ width: '100%' }}>
@@ -100,7 +118,7 @@ export default function PrescriptionListPage() {
                           {STATUS_LABELS[p.status]}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'right' }}>{p.created_at}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'right' }}>{formatDateTime(p.created_at)}</td>
                       <td>
                         <div className="action-btns">
                           <Link to={`/prescriptions/${p.id}`} className="glass-btn glass-btn--outline glass-btn--sm">查看</Link>

@@ -5,11 +5,18 @@ import { patientApi } from '../services/api';
 import type { Patient, PatientFormData } from '../types';
 import { STATUS_LABELS, STATUS_COLORS } from '../types';
 import Modal from '../components/Modal';
+import ModuleIcon from '../components/ModuleIcon';
+import GlassSelect from '../components/GlassSelect';
+import { formatDateTime } from '../utils/date';
 
 const rowAnim = {
   hidden: { opacity: 0, x: -10 },
   visible: (i: number) => ({ opacity: 1, x: 0, transition: { delay: i * 0.06 } }),
 };
+const GENDER_OPTIONS = [
+  { value: '男', label: '男' },
+  { value: '女', label: '女' },
+];
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,7 +97,7 @@ export default function PatientDetailPage() {
       <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>历史处方（{patient.prescriptions?.length || 0}）</h3>
         {!patient.prescriptions || patient.prescriptions.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">📋</div><p>暂无处方记录</p></div>
+          <div className="empty-state"><div className="empty-icon"><ModuleIcon name="prescriptions" size={48} /></div><p>暂无处方记录</p></div>
         ) : (
           <table className="glass-table">
             <thead>
@@ -107,7 +114,7 @@ export default function PatientDetailPage() {
                       {STATUS_LABELS[p.status]}
                     </span>
                   </td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{p.created_at}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{formatDateTime(p.created_at)}</td>
                   <td>
                     <Link to={`/prescriptions/${p.id}`} className="glass-btn glass-btn--outline glass-btn--sm">查看</Link>
                   </td>
@@ -123,7 +130,7 @@ export default function PatientDetailPage() {
         <form onSubmit={handleUpdate}>
           <div className="form-grid">
             <div className="form-group"><label>姓名 *</label><input className="glass-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="form-group"><label>性别 *</label><select className="glass-input" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}><option value="男">男</option><option value="女">女</option></select></div>
+            <div className="form-group"><label>性别 *</label><GlassSelect value={form.gender} options={GENDER_OPTIONS} onChange={(gender) => setForm({ ...form, gender })} /></div>
             <div className="form-group"><label>年龄</label><input className="glass-input" type="number" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value === '' ? '' : Number(e.target.value) })} /></div>
             <div className="form-group"><label>手机号</label><input className="glass-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="form-group"><label>身份证号</label><input className="glass-input" value={form.id_card} onChange={(e) => setForm({ ...form, id_card: e.target.value })} /></div>

@@ -3,8 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import ToastContainer from './Toast';
+import ModuleIcon, { type ModuleIconName } from './ModuleIcon';
 
 const ROLES: Record<string,string> = { doctor:'医生', pharmacist:'药师', admin:'管理员' };
+
+type TabItem = {
+  to: string;
+  icon: ModuleIconName;
+  label: string;
+  roles?: string[];
+};
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -38,21 +46,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return `${y}-${m}-${da} ${h}:${mi}:${s}`;
   };
 
-  const tabs = [
-    { to:'/dashboard',        icon:'📋', label:'工作版' },
-    { to:'/prescriptions/new', icon:'✍️', label:'开具处方', roles:['doctor','admin'] },
-    { to:'/review',           icon:'🔍', label:'处方审核', roles:['pharmacist','admin'] },
-    { to:'/patients',         icon:'👥', label:'病人管理' },
-    { to:'/medicines',        icon:'💊', label:'药品管理' },
-  ].filter(t => !t.roles || (user&&t.roles.includes(user.role)));
+  const allTabs: TabItem[] = [
+    { to:'/dashboard', icon:'dashboard', label:'工作版' },
+    { to:'/prescriptions/new', icon:'prescriptionNew', label:'开具处方', roles:['doctor','admin'] },
+    { to:'/review', icon:'review', label:'处方审核', roles:['pharmacist','admin'] },
+    { to:'/patients', icon:'patients', label:'病人管理' },
+    { to:'/medicines', icon:'medicines', label:'药品管理' },
+  ];
+  const tabs = allTabs.filter(t => !t.roles || (user&&t.roles.includes(user.role)));
 
   return (
     <div>
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
       <header className="topbar">
-        <h1>🏥 仁爱医院 HIS</h1>
+        <h1><span className="brand-mark">H</span><span>仁爱医院 HIS</span></h1>
         <div className="topbar-right">
           <span className="topbar-time">{fmt(time)}</span>
           <span className="topbar-role">{ROLES[user?.role||'']}</span>
@@ -65,7 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {tabs.map(t => (
           <button key={t.to} className={`tab ${loc.pathname===t.to?'tab--active':''}`}
             onClick={()=>navigate(t.to)}>
-            <span className="tab-icon">{t.icon}</span> {t.label}
+            <span className="tab-icon" aria-hidden="true"><ModuleIcon name={t.icon} size={24} /></span> {t.label}
           </button>
         ))}
       </nav>
@@ -88,28 +94,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.5, type: 'spring', stiffness: 300 }}
-        style={{
-          position: 'fixed',
-          bottom: 28,
-          right: 28,
-          width: 60,
-          height: 60,
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #4A90D9, #2D6DB5)',
-          color: '#fff',
-          border: 'none',
-          fontSize: 26,
-          cursor: 'pointer',
-          boxShadow: '0 8px 28px rgba(74,144,217,0.4)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1,
-          padding: 0,
-        }}
       >
-        📷
+        <ModuleIcon name="scan" size={42} />
       </motion.button>
     </div>
   );

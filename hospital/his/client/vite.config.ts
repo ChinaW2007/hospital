@@ -5,19 +5,26 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const keyPath = path.resolve(__dirname, 'key.pem');
+const certPath = path.resolve(__dirname, 'cert.pem');
+const devHttps = fs.existsSync(keyPath) && fs.existsSync(certPath)
+  ? {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
+    }
+  : undefined;
+const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:3001';
 
 export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
     port: 3002,
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, 'key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, 'cert.pem')),
-    },
+    strictPort: true,
+    ...(devHttps ? { https: devHttps } : {}),
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiTarget,
         changeOrigin: true,
       },
     },

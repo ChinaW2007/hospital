@@ -15,13 +15,6 @@ export function showToast(message: string, type: 'success' | 'error' | 'info' | 
   listeners.forEach((fn) => fn(toast));
 }
 
-const ICONS: Record<string, string> = {
-  success: '✅',
-  error: '❌',
-  info: 'ℹ️',
-  warning: '⚠️',
-};
-
 const COLORS: Record<string, string> = {
   success: 'linear-gradient(135deg, #5CB85C, #3D8B3D)',
   error: 'linear-gradient(135deg, #DC2626, #B91C1C)',
@@ -65,11 +58,9 @@ export default function ToastContainer() {
               pointerEvents: 'auto',
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
               whiteSpace: 'nowrap',
             }}
           >
-            <span style={{ fontSize: 18 }}>{ICONS[toast.type]}</span>
             {toast.message}
           </motion.div>
         ))}

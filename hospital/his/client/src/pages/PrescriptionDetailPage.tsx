@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import type { Prescription } from '../types';
 import { STATUS_LABELS, STATUS_COLORS } from '../types';
 import { showToast } from '../components/Toast';
+import { formatDateTime } from '../utils/date';
 
 const rowAnim = {
   hidden: { opacity: 0, x: -10 },
@@ -70,7 +71,7 @@ export default function PrescriptionDetailPage() {
             <span className="glass-badge" style={{ background: STATUS_COLORS[prescription.status] + '22', color: STATUS_COLORS[prescription.status], fontSize: 13 }}>
               {STATUS_LABELS[prescription.status]}
             </span>
-            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 13 }}>{prescription.created_at}</span>
+            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 13 }}>{formatDateTime(prescription.created_at)}</span>
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -81,7 +82,7 @@ export default function PrescriptionDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>👤 病人信息</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>病人信息</h3>
           <div style={{ fontSize: 14, lineHeight: 2 }}>
             <div><span style={{ color: 'var(--text-muted)' }}>姓名：</span><strong>{prescription.patient_name}</strong></div>
             <div><span style={{ color: 'var(--text-muted)' }}>性别：</span>{prescription.patient_gender}</div>
@@ -91,7 +92,7 @@ export default function PrescriptionDetailPage() {
         </motion.div>
 
         <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>🩺 诊断信息</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>诊断信息</h3>
           <div style={{ fontSize: 14, lineHeight: 2 }}>
             <div><span style={{ color: 'var(--text-muted)' }}>诊断：</span><strong style={{ color: 'var(--blue)' }}>{prescription.diagnosis}</strong></div>
             <div><span style={{ color: 'var(--text-muted)' }}>开方医生：</span>{prescription.doctor_name}</div>
@@ -101,7 +102,7 @@ export default function PrescriptionDetailPage() {
       </div>
 
       <motion.div className="glass-card" style={{ padding: 20, marginTop: 16 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>💊 处方明细</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>处方明细</h3>
         {!prescription.items || prescription.items.length === 0 ? (
           <div className="empty-state"><p>无药品明细</p></div>
         ) : (
@@ -132,12 +133,12 @@ export default function PrescriptionDetailPage() {
           <span style={{ fontWeight: 600, marginRight: 8 }}>操作：</span>
           {canReview && (
             <>
-              <motion.button className="glass-btn glass-btn--success" onClick={() => setConfirmReviewAction('approved')} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>✅ 审核通过</motion.button>
-              <motion.button className="glass-btn glass-btn--danger" onClick={() => setConfirmReviewAction('rejected')} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>❌ 驳回处方</motion.button>
+              <motion.button className="glass-btn glass-btn--success" onClick={() => setConfirmReviewAction('approved')} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>审核通过</motion.button>
+              <motion.button className="glass-btn glass-btn--danger" onClick={() => setConfirmReviewAction('rejected')} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>驳回处方</motion.button>
             </>
           )}
           {canDispense && (
-            <motion.button className="glass-btn glass-btn--primary" onClick={() => setConfirmDispenseOpen(true)} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>📦 确认发药</motion.button>
+            <motion.button className="glass-btn glass-btn--primary" onClick={() => setConfirmDispenseOpen(true)} disabled={actionLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认发药</motion.button>
           )}
         </motion.div>
       )}
@@ -147,7 +148,7 @@ export default function PrescriptionDetailPage() {
         {confirmReviewAction && (
           <motion.div className="confirm-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="confirm-dialog glass-card" initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
-              <h3>{confirmReviewAction === 'approved' ? '✅ 确认审核通过' : '❌ 确认驳回处方'}</h3>
+              <h3>{confirmReviewAction === 'approved' ? '确认审核通过' : '确认驳回处方'}</h3>
               <div style={{ margin: '16px 0', fontSize: 14, lineHeight: 2 }}>
                 <div><strong>处方编号：</strong>{prescription.prescription_code || `#${prescription.id}`}</div>
                 <div><strong>病人：</strong>{prescription.patient_name}</div>
@@ -158,7 +159,7 @@ export default function PrescriptionDetailPage() {
               </p>
               <div className="confirm-actions">
                 <motion.button className={`glass-btn ${confirmReviewAction === 'approved' ? 'glass-btn--success' : 'glass-btn--danger'}`} onClick={confirmReview} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  {confirmReviewAction === 'approved' ? '✅ 确认通过' : '❌ 确认驳回'}
+                  {confirmReviewAction === 'approved' ? '确认通过' : '确认驳回'}
                 </motion.button>
                 <button className="glass-btn glass-btn--outline" onClick={() => setConfirmReviewAction(null)}>取消</button>
               </div>
@@ -172,7 +173,7 @@ export default function PrescriptionDetailPage() {
         {confirmDispenseOpen && (
           <motion.div className="confirm-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="confirm-dialog glass-card" initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
-              <h3>📦 确认发药</h3>
+              <h3>确认发药</h3>
               <div style={{ margin: '16px 0', fontSize: 14, lineHeight: 2 }}>
                 <div><strong>处方编号：</strong>{prescription.prescription_code || `#${prescription.id}`}</div>
                 <div><strong>病人：</strong>{prescription.patient_name}</div>
@@ -180,7 +181,7 @@ export default function PrescriptionDetailPage() {
               </div>
               <p style={{ fontSize: 13, color: 'var(--green)', marginBottom: 20, fontWeight: 500 }}>确认药品已发放给患者？操作后处方状态将变为"已发药"。</p>
               <div className="confirm-actions">
-                <motion.button className="glass-btn glass-btn--primary" onClick={confirmDispense} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>📦 确认发药</motion.button>
+                <motion.button className="glass-btn glass-btn--primary" onClick={confirmDispense} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认发药</motion.button>
                 <button className="glass-btn glass-btn--outline" onClick={() => setConfirmDispenseOpen(false)}>取消</button>
               </div>
             </motion.div>

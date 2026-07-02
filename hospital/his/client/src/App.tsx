@@ -39,10 +39,10 @@ function PrivateRoute({ children, roles, noLayout }: { children: React.ReactNode
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', color: '#fff', fontFamily: 'sans-serif',
-        background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%)',
+        height: '100vh', color: '#1E293B', fontFamily: 'sans-serif',
+        background: 'linear-gradient(120deg, #eaf6ff 0%, #edfdf8 44%, #fff2f7 100%)',
       }}>
-        <div style={{ fontSize: 64, marginBottom: 20 }}>⚠️</div>
+        <div className="glass-icon-mark" style={{ marginBottom: 20 }}>!</div>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500 }}>系统已停止服务</h2>
       </div>
     );
@@ -74,13 +74,13 @@ export default function App() {
       <Route path="/medicines" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-info" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-locations" element={<PrivateRoute><MedicineLocationsPage /></PrivateRoute>} />
-      <Route path="/dispense" element={<PrivateRoute><PlaceholderPage title="医嘱取药" icon="💉" /></PrivateRoute>} />
-      <Route path="/medicine-settings" element={<PrivateRoute><PlaceholderPage title="药盒设置" icon="⚙️" /></PrivateRoute>} />
-      <Route path="/reports" element={<PrivateRoute><PlaceholderPage title="报表生成" icon="📊" /></PrivateRoute>} />
-      <Route path="/writeoff" element={<PrivateRoute><PlaceholderPage title="销账" icon="📒" /></PrivateRoute>} />
-      <Route path="/operation-log" element={<PrivateRoute><PlaceholderPage title="操作记录" icon="📋" /></PrivateRoute>} />
-      <Route path="/restock" element={<PrivateRoute><PlaceholderPage title="补药" icon="➕" /></PrivateRoute>} />
-      <Route path="/inventory" element={<PrivateRoute><PlaceholderPage title="库存查询" icon="🔍" /></PrivateRoute>} />
+      <Route path="/dispense" element={<PrivateRoute><PlaceholderPage title="医嘱取药" icon="dispense" /></PrivateRoute>} />
+      <Route path="/medicine-settings" element={<PrivateRoute><PlaceholderPage title="药盒设置" icon="medicineSettings" /></PrivateRoute>} />
+      <Route path="/reports" element={<PrivateRoute><PlaceholderPage title="报表生成" icon="reports" /></PrivateRoute>} />
+      <Route path="/writeoff" element={<PrivateRoute><PlaceholderPage title="销账" icon="writeoff" /></PrivateRoute>} />
+      <Route path="/operation-log" element={<PrivateRoute><PlaceholderPage title="操作记录" icon="operationLog" /></PrivateRoute>} />
+      <Route path="/restock" element={<PrivateRoute><PlaceholderPage title="补药" icon="restock" /></PrivateRoute>} />
+      <Route path="/inventory" element={<PrivateRoute><PlaceholderPage title="库存查询" icon="inventory" /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

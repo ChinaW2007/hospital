@@ -5,8 +5,15 @@ import { patientApi } from '../services/api';
 import type { Patient, PatientFormData } from '../types';
 import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
+import ModuleIcon from '../components/ModuleIcon';
+import GlassSelect from '../components/GlassSelect';
+import { formatDateTime } from '../utils/date';
 
 const emptyForm: PatientFormData = { name: '', gender: '男', age: '', phone: '', id_card: '', address: '' };
+const GENDER_OPTIONS = [
+  { value: '男', label: '男' },
+  { value: '女', label: '女' },
+];
 
 const rowAnim = {
   hidden: { opacity: 0, y: 10 },
@@ -110,10 +117,7 @@ export default function PatientListPage() {
             </div>
             <div className="form-group">
               <label>性别 *</label>
-              <select className="glass-input" value={form.gender} onChange={(e) => update('gender', e.target.value)}>
-                <option value="男">男</option>
-                <option value="女">女</option>
-              </select>
+              <GlassSelect value={form.gender} options={GENDER_OPTIONS} onChange={(value) => update('gender', value)} />
             </div>
             <div className="form-group">
               <label>年龄</label>
@@ -146,10 +150,10 @@ export default function PatientListPage() {
         {loading ? (
           <div className="loading">加载中...</div>
         ) : patients.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">👥</div><p>暂无病人数据</p></div>
+          <div className="empty-state"><div className="empty-icon"><ModuleIcon name="patients" size={48} /></div><p>暂无病人数据</p></div>
         ) : (
           <>
-            <table className="glass-table">
+            <table className="glass-table patient-table">
               <thead>
                 <tr><th>姓名</th><th>性别</th><th>年龄</th><th>手机号</th><th>地址</th><th>创建时间</th><th>操作</th></tr>
               </thead>
@@ -162,7 +166,7 @@ export default function PatientListPage() {
                       <td>{p.age}</td>
                       <td>{p.phone || '-'}</td>
                       <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.address || '-'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{p.created_at}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{formatDateTime(p.created_at)}</td>
                       <td>
                         <div className="action-btns">
                           <Link to={`/patients/${p.id}`} className="glass-btn glass-btn--outline glass-btn--sm">查看</Link>

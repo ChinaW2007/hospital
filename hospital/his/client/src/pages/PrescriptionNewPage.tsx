@@ -5,6 +5,8 @@ import { prescriptionApi, patientApi, medicineApi } from '../services/api';
 import type { Patient, Medicine, PrescriptionItemFormData } from '../types';
 import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
+import ModuleIcon from '../components/ModuleIcon';
+import GlassSelect from '../components/GlassSelect';
 
 interface MedItem extends PrescriptionItemFormData {
   medicine_name?: string; specification?: string; unit?: string; price?: number;
@@ -12,14 +14,46 @@ interface MedItem extends PrescriptionItemFormData {
 
 const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
-// 处方类型对应颜色
-const PRESCRIPTION_COLORS: Record<string, { bg: string; border: string; label: string }> = {
-  '普通': { bg: 'rgba(255,255,255,0.5)', border: 'rgba(200,200,200,0.6)', label: '普通处方' },
-  '急诊': { bg: 'rgba(255,253,231,0.6)', border: 'rgba(255,213,79,0.5)', label: '急诊处方' },
-  '儿科': { bg: 'rgba(232,245,233,0.6)', border: 'rgba(129,199,132,0.5)', label: '儿科处方' },
-  '麻醉精一': { bg: 'rgba(255,235,238,0.6)', border: 'rgba(239,154,154,0.5)', label: '麻醉,精一处方 ' },
-  '精二': { bg: 'rgba(245,245,245,0.6)', border: 'rgba(180,180,180,0.5)', label: '精二处方' },
+// 处方类型对应液态玻璃色
+const PRESCRIPTION_COLORS: Record<string, { bg: string; border: string; accent: string; label: string }> = {
+  '普通': { bg: 'rgba(255,255,255,0.54)', border: 'rgba(49,120,198,0.22)', accent: '#3178C6', label: '普通处方' },
+  '急诊': { bg: 'rgba(255,245,226,0.62)', border: 'rgba(245,158,11,0.32)', accent: '#D97706', label: '急诊处方' },
+  '儿科': { bg: 'rgba(232,255,249,0.62)', border: 'rgba(50,198,186,0.32)', accent: '#0F9F92', label: '儿科处方' },
+  '麻醉精一': { bg: 'rgba(255,239,246,0.64)', border: 'rgba(231,140,168,0.36)', accent: '#C84B74', label: '麻醉、精一处方' },
+  '精二': { bg: 'rgba(238,242,255,0.64)', border: 'rgba(99,102,241,0.28)', accent: '#4F46E5', label: '精二处方' },
 };
+
+const PRESCRIPTION_TYPE_OPTIONS = [
+  { value: '普通', label: '普通处方' },
+  { value: '急诊', label: '急诊处方' },
+  { value: '儿科', label: '儿科处方' },
+  { value: '麻醉精一', label: '麻、精一' },
+  { value: '精二', label: '精二处方' },
+];
+
+const PAYMENT_TYPE_OPTIONS = [
+  { value: '公费', label: '公费医疗' },
+  { value: '医保', label: '医疗保险' },
+  { value: '部分自费', label: '部分自费' },
+  { value: '自费', label: '自费' },
+];
+
+const USAGE_METHOD_OPTIONS = [
+  { value: '口服', label: '口服' },
+  { value: '外用', label: '外用' },
+  { value: '注射', label: '注射' },
+  { value: '含服', label: '含服' },
+  { value: '吸入', label: '吸入' },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: '每日1次', label: '每日1次' },
+  { value: '每日2次', label: '每日2次' },
+  { value: '每日3次', label: '每日3次' },
+  { value: '每日4次', label: '每日4次' },
+  { value: '睡前1次', label: '睡前1次' },
+  { value: '必要时', label: '必要时' },
+];
 
 export default function PrescriptionNewPage() {
   const navigate = useNavigate();
@@ -121,10 +155,15 @@ export default function PrescriptionNewPage() {
   };
 
   return (
-    <div>
-      <motion.div className="page-header" {...fadeUp} transition={{ duration: 0.4 }}>
-        <h1>✍️ 开具处方</h1>
-        <p>选择病人 → 填写诊断 → 添加药品 → 提交处方</p>
+    <div className="prescription-new-page">
+      <motion.div className="page-header prescription-header" {...fadeUp} transition={{ duration: 0.4 }}>
+        <div className="prescription-title-icon">
+          <ModuleIcon name="prescriptionNew" size={54} />
+        </div>
+        <div>
+          <h1>开具处方</h1>
+          <p>选择病人 → 填写诊断 → 添加药品 → 提交处方</p>
+        </div>
       </motion.div>
 
       {error && <motion.div className="alert alert--error" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>{error}</motion.div>}
@@ -133,13 +172,14 @@ export default function PrescriptionNewPage() {
         {/* 处方类型标签 */}
         <motion.div {...fadeUp} transition={{ delay: 0.03 }} style={{ marginBottom: 12, textAlign: 'center' }}>
           <span style={{
-            display: 'inline-block', padding: '6px 20px', borderRadius: 50,
+            display: 'inline-block', padding: '7px 22px', borderRadius: 50,
             background: PRESCRIPTION_COLORS[prescriptionType].bg,
             border: `2px solid ${PRESCRIPTION_COLORS[prescriptionType].border}`,
-            fontWeight: 600, fontSize: 15, color: 'var(--text-primary)',
-            backdropFilter: 'blur(10px)',
+            fontWeight: 700, fontSize: 15, color: PRESCRIPTION_COLORS[prescriptionType].accent,
+            backdropFilter: 'var(--blur)',
+            boxShadow: `0 12px 26px ${PRESCRIPTION_COLORS[prescriptionType].border}`,
           }}>
-            📋 {PRESCRIPTION_COLORS[prescriptionType].label}
+            {PRESCRIPTION_COLORS[prescriptionType].label}
           </span>
         </motion.div>
 
@@ -149,26 +189,15 @@ export default function PrescriptionNewPage() {
           background: PRESCRIPTION_COLORS[prescriptionType].bg,
           borderColor: PRESCRIPTION_COLORS[prescriptionType].border,
         }} {...fadeUp} transition={{ delay: 0.05 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>📋 处方前记</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: PRESCRIPTION_COLORS[prescriptionType].accent }}>处方前记</h3>
           <div className="form-grid form-grid--3">
             <div className="form-group">
               <label>处方类型</label>
-              <select className="glass-input" value={prescriptionType} onChange={(e) => setPrescriptionType(e.target.value)}>
-                <option value="普通">普通处方</option>
-                <option value="急诊">急诊处方</option>
-                <option value="儿科">儿科处方</option>
-                <option value="麻醉精一">麻、精一</option>
-                <option value="精二">精二处方</option>
-              </select>
+              <GlassSelect value={prescriptionType} options={PRESCRIPTION_TYPE_OPTIONS} onChange={setPrescriptionType} />
             </div>
             <div className="form-group">
               <label>费别</label>
-              <select className="glass-input" value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
-                <option value="公费">公费医疗</option>
-                <option value="医保">医疗保险</option>
-                <option value="部分自费">部分自费</option>
-                <option value="自费">自费</option>
-              </select>
+              <GlassSelect value={paymentType} options={PAYMENT_TYPE_OPTIONS} onChange={setPaymentType} />
             </div>
             <div className="form-group">
               <label>病历号</label>
@@ -236,8 +265,8 @@ export default function PrescriptionNewPage() {
           borderColor: PRESCRIPTION_COLORS[prescriptionType].border,
         }} {...fadeUp} transition={{ delay: 0.15 }}>
           <div className="flex-between" style={{ marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600 }}>💊 处方正文 (Rp) — 已添加 {items.length}/5 种药品</h3>
-            {items.length >= 5 && <span style={{ color: '#d9534f', fontSize: 13, fontWeight: 600 }}>⚠ 已达上限</span>}
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: PRESCRIPTION_COLORS[prescriptionType].accent }}>处方正文 (Rp) — 已添加 {items.length}/5 种药品</h3>
+            {items.length >= 5 && <span style={{ color: '#d9534f', fontSize: 13, fontWeight: 600 }}>已达上限</span>}
           </div>
 
           {items.length > 0 && (
@@ -298,9 +327,8 @@ export default function PrescriptionNewPage() {
 
         <motion.div style={{ display: 'flex', gap: 12 }} {...fadeUp} transition={{ delay: 0.2 }}>
           <motion.button className="glass-btn glass-btn--primary glass-btn--lg" type="submit" disabled={submitting} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            {submitting ? '提交中...' : '📤 提交处方'}
+            {submitting ? '提交中...' : '提交处方'}
           </motion.button>
-          <button className="glass-btn glass-btn--outline" type="button" onClick={() => navigate(-1)}>返回</button>
         </motion.div>
       </form>
 
@@ -309,21 +337,21 @@ export default function PrescriptionNewPage() {
         {confirmOpen && (
           <motion.div className="confirm-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="confirm-dialog glass-card" initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
-              <h3>📋 确认开具处方</h3>
+              <h3>确认开具处方</h3>
               <div style={{ textAlign: 'left', margin: '16px 0', fontSize: 14, lineHeight: 2 }}>
                 <div><strong>处方类型：</strong>{PRESCRIPTION_COLORS[prescriptionType].label}</div>
                 <div><strong>病人：</strong>{selectedPatient?.name} ({selectedPatient?.gender} · {selectedPatient?.age}岁)</div>
                 <div><strong>诊断：</strong><span style={{ color: 'var(--blue)' }}>{diagnosis}</span></div>
                 <div><strong>药品数量：</strong>{items.length} 种</div>
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
+                <div style={{ marginTop: 8, padding: '8px 12px', background: PRESCRIPTION_COLORS[prescriptionType].bg, border: `1px solid ${PRESCRIPTION_COLORS[prescriptionType].border}`, borderRadius: 8 }}>
                   {items.map((item, i) => (
-                    <div key={i}>💊 {item.medicine_name} — {item.dosage} · {item.usage_method} · {item.frequency} × {item.days}天 × {item.quantity}{item.unit}</div>
+                    <div key={i}>{item.medicine_name} — {item.dosage} · {item.usage_method} · {item.frequency} × {item.days}天 × {item.quantity}{item.unit}</div>
                   ))}
                 </div>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>请仔细核对处方信息，提交后将进入药师审核流程。</p>
               <div className="confirm-actions">
-                <motion.button className="glass-btn glass-btn--primary" onClick={confirmSubmit} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>✅ 确认提交</motion.button>
+                <motion.button className="glass-btn glass-btn--primary" onClick={confirmSubmit} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认提交</motion.button>
                 <button className="glass-btn glass-btn--outline" onClick={() => setConfirmOpen(false)}>取消</button>
               </div>
             </motion.div>
@@ -343,22 +371,18 @@ export default function PrescriptionNewPage() {
           </div>
           <div className="form-group">
             <label>用法</label>
-            <select className="glass-input" value={medForm.usage_method} onChange={(e) => setMedForm({ ...medForm, usage_method: e.target.value })}>
-              <option value="口服">口服</option><option value="外用">外用</option><option value="注射">注射</option><option value="含服">含服</option><option value="吸入">吸入</option>
-            </select>
+            <GlassSelect value={medForm.usage_method} options={USAGE_METHOD_OPTIONS} onChange={(usage_method) => setMedForm({ ...medForm, usage_method })} />
           </div>
           <div className="form-group">
             <label>频次</label>
-            <select className="glass-input" value={medForm.frequency} onChange={(e) => setMedForm({ ...medForm, frequency: e.target.value })}>
-              <option value="每日1次">每日1次</option><option value="每日2次">每日2次</option><option value="每日3次">每日3次</option><option value="每日4次">每日4次</option><option value="睡前1次">睡前1次</option><option value="必要时">必要时</option>
-            </select>
+            <GlassSelect value={medForm.frequency} options={FREQUENCY_OPTIONS} onChange={(frequency) => setMedForm({ ...medForm, frequency })} />
           </div>
           <div className="form-group"><label>天数</label><input className="glass-input" type="number" value={medForm.days} onChange={(e) => setMedForm({ ...medForm, days: parseInt(e.target.value) || 1 })} /></div>
           <div className="form-group"><label>数量</label><input className="glass-input" type="number" value={medForm.quantity} onChange={(e) => setMedForm({ ...medForm, quantity: parseInt(e.target.value) || 1 })} /></div>
           <div className="form-group"><label>备注</label><input className="glass-input" placeholder="如饭后服用" value={medForm.note} onChange={(e) => setMedForm({ ...medForm, note: e.target.value })} /></div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <motion.button className="glass-btn glass-btn--success" type="button" onClick={addMedItem} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>✓ 确认添加</motion.button>
+          <motion.button className="glass-btn glass-btn--success" type="button" onClick={addMedItem} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>确认添加</motion.button>
           <button className="glass-btn glass-btn--outline" type="button" onClick={() => { setMedModalOpen(false); setSelectedMed(null); }}>取消</button>
         </div>
       </Modal>

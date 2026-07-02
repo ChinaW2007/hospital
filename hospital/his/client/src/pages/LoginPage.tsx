@@ -38,7 +38,8 @@ export default function LoginPage() {
         transition={{ type: 'spring', damping: 20, stiffness: 200 }}
       >
         <motion.h2 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-          🏥 医院HIS系统
+          <span className="login-brand-mark">H</span>
+          医院HIS系统
         </motion.h2>
         <motion.p className="subtitle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
           医生配药管理平台

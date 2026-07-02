@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { medicineTraceCodeApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { formatDateTime } from '../utils/date';
 
 interface ScanEntry {
   trace_code: string;
@@ -110,7 +111,7 @@ export default function ScanPage() {
         scan1_time: data.scan1_time || null,
         scan2_time: data.scan2_time || null,
         scan3_time: data.scan3_time || null,
-        time: new Date().toLocaleTimeString('zh-CN'),
+        time: formatDateTime(new Date()),
       };
       setHistory(prev => {
         const others = prev.filter(e => e.trace_code !== code);
@@ -168,7 +169,7 @@ export default function ScanPage() {
         .scan-app { position: fixed; inset: 0; background: #0a0a1a; display: flex; flex-direction: column; z-index: 9999; }
         .scan-topbar { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: #fff; flex-shrink: 0; }
         .scan-topbar h1 { font-size: 16px; font-weight: 600; }
-        .scan-topbar button { background: rgba(255,255,255,0.1); border: none; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
+        .scan-topbar button { background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); border: 1px solid rgba(255,255,255,0.24); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 20px rgba(0,0,0,0.2); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); }
         .scan-camera-area { position: relative; flex-shrink: 0; }
         #scanner-view { width: 100%; min-height: 200px; background: #000; }
         #scanner-view video { width: 100% !important; height: auto !important; display: block; }
@@ -181,10 +182,10 @@ export default function ScanPage() {
         .scan-ctrl { padding: 10px 16px; flex-shrink: 0; display: flex; gap: 8px; }
         .scan-ctrl input { flex: 1; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; padding: 0 12px; font-size: 14px; outline: none; }
         .scan-ctrl input::placeholder { color: rgba(255,255,255,0.3); }
-        .scan-ctrl button { height: 40px; border-radius: 10px; border: none; color: #fff; font-size: 14px; cursor: pointer; padding: 0 14px; }
-        .btn-scan { flex: 1; background: linear-gradient(135deg, #4A90D9, #2D6DB5); font-weight: 600; font-size: 15px; height: 44px; }
-        .btn-stop { flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.2); height: 44px; font-size: 15px; }
-        .btn-search { background: rgba(255,255,255,0.1); flex-shrink: 0; }
+        .scan-ctrl button { height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.24); color: #fff; font-size: 14px; cursor: pointer; padding: 0 14px; background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 20px rgba(0,0,0,0.2); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); }
+        .btn-scan { flex: 1; background: linear-gradient(135deg, rgba(74,144,217,0.44), rgba(45,109,181,0.22)); font-weight: 600; font-size: 15px; height: 44px; }
+        .btn-stop { flex: 1; background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); height: 44px; font-size: 15px; }
+        .btn-search { background: linear-gradient(135deg, rgba(74,144,217,0.26), rgba(255,255,255,0.08)); flex-shrink: 0; }
         .scan-list { flex: 1; overflow-y: auto; padding: 0 16px 16px; }
         .scan-list-title { font-size: 12px; color: rgba(255,255,255,0.3); padding: 8px 0; }
         .scan-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 6px; }
@@ -199,8 +200,8 @@ export default function ScanPage() {
       `}</style>
 
       <div className="scan-topbar">
-        <button onClick={() => navigate(-1)}>← 返回</button>
-        <h1>📱 扫码核验</h1>
+        <button onClick={() => navigate(-1)}>返回</button>
+        <h1>扫码核验</h1>
         <button onClick={() => { stopScanner(); logout(); navigate('/login'); }}>退出</button>
       </div>
 
@@ -227,7 +228,7 @@ export default function ScanPage() {
           style={{ flex: 2, fontWeight: 600, fontSize: 16, textAlign: 'center' }}
         />
         {!scanning ? (
-          <button className="btn-scan" onClick={startScanner}>📷 启动扫码</button>
+          <button className="btn-scan" onClick={startScanner}>启动扫码</button>
         ) : (
           <button className="btn-stop" onClick={stopScanner}>停止扫码</button>
         )}
@@ -305,7 +306,7 @@ export default function ScanPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            {toast.type === 'success' ? '✅ ' : '❌ '}{toast.text}
+            {toast.text}
           </motion.div>
         )}
       </AnimatePresence>
