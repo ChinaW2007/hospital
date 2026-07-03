@@ -117,6 +117,19 @@ def parse_ros_message(data: str) -> Dict[str, Any]:
                 "prescription_code": parts[0] if parts[0] else None
             }
     
+    # ===== 新增：通用解析所有 {prescription_code}_状态 格式 =====
+    # 支持: {prescription_code}_running-step1-navigate-to-pharmacy
+    #       {prescription_code}_running-step5-return
+    #       {prescription_code}_end
+    #       等所有格式
+    if "_" in data:
+        parts = data.split("_", 1)  # 只分割第一个下划线
+        if len(parts) == 2:
+            return {
+                "status": parts[1],  # 状态部分（如 "running-step5-return", "end"）
+                "prescription_code": parts[0]  # 处方编码部分
+            }
+    
     # 纯字符串格式（旧版本兼容）
     return {
         "status": data,
@@ -138,6 +151,7 @@ def update_prescription_workflow_db(prescription_code: str, status: str) -> bool
     try:
         from sqlalchemy import create_engine, text
         from app.core.config import settings
+        import pymysql
         
         engine = create_engine(settings.database_url)
         
@@ -169,6 +183,46 @@ def update_prescription_workflow_db(prescription_code: str, status: str) -> bool
             conn.commit()
             print(f"[成功] 更新处方流程状态: {prescription_code} -> {status}")
             logger.info(f"已更新处方流程状态: {prescription_code} -> {status}")
+            
+            # ===== 新增：当任务完成时（Step 5 返回），同步更新 HIS MySQL prescriptions 表 =====
+            # 如果 ROS 状态为 'running-step5-return'，说明机器人正在返回起点，任务已完成
+            if status == "running-step5-return":
+                try:
+                    his_conn = pymysql.connect(
+                        host=settings.his_mysql_host,
+                        port=settings.his_mysql_port,
+                        user=settings.his_mysql_user,
+                        password=settings.his_mysql_pass,
+                        database=settings.his_mysql_db,
+                        charset="utf8mb4",
+                        connect_timeout=5
+                    )
+                    with his_conn.cursor() as his_cursor:
+                        # 更新 prescriptions 表的 status 字段（pymysql 使用 %s 格式）
+                        his_cursor.execute("""
+                            UPDATE prescriptions 
+                            SET status = 'dispensed' 
+                            WHERE prescription_code = %s AND status = 'pending'
+                        """, (prescription_code,))
+                        his_conn.commit()
+                        
+                        affected_rows = his_cursor.rowcount
+                        if affected_rows > 0:
+                            print(f"[成功] HIS处方状态更新: {prescription_code} -> dispensed")
+                            logger.info(f"HIS处方状态更新: {prescription_code} -> dispensed")
+                        else:
+                            print(f"[警告] HIS处方未找到或状态已更新: {prescription_code}")
+                            logger.warning(f"HIS处方未找到或状态已更新: {prescription_code}")
+                    
+                    his_conn.close()
+                    
+                except pymysql.Error as e:
+                    print(f"[失败] HIS MySQL同步失败: {e}")
+                    logger.error(f"HIS MySQL同步失败: {e}")
+                except Exception as e:
+                    print(f"[失败] HIS MySQL同步异常: {e}")
+                    logger.error(f"HIS MySQL同步异常: {e}")
+            
             return True
     
     except Exception as e:

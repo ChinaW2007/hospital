@@ -9,7 +9,7 @@ def handle_robot_state(data):
     print("收到ROS状态:", data)
 
     # ===== 任务开始 =====
-    if data == "running_started":
+    if "running-started" in data:
         print("🟢 任务启动")
 
     # ===== Step 1 =====

@@ -31,6 +31,7 @@ _current_prescription_code = None
 _last_sent_code = None
 _sender_running = False
 _ws_connection = None
+_send_count = {}  # 发送计数器（针对每个处方编码）
 
 
 def get_latest_pending_prescription():
@@ -91,14 +92,28 @@ async def send_prescription_to_ros(prescription_code: str):
         "op": "publish",
         "topic": "/his_sub",
         "msg": {
-            "data": "start",
+            "data": "start" 或 "running",  # 前2次发送 "start"，之后发送 "running"
             "prescription_code": "处方编码"
         }
     }
+    
+    发送逻辑：
+    - 第1次：start + prescription_code
+    - 第2次：start + prescription_code
+    - 第3次及之后：running + prescription_code
     """
-    global _ws_connection
+    global _ws_connection, _send_count
     
     try:
+        # 获取当前处方的发送计数
+        count = _send_count.get(prescription_code, 0)
+        
+        # 根据计数器判断发送内容
+        if count < 2:
+            data = "start"  # 前2次发送 "start"
+        else:
+            data = "running"  # 第3次及之后发送 "running"
+        
         # 检查连接是否有效（websockets 11.x+ 使用 open 属性）
         need_new_connection = False
         if _ws_connection is None:
@@ -151,12 +166,16 @@ async def send_prescription_to_ros(prescription_code: str):
             "op": "publish",
             "topic": ROS_TOPIC,
             "msg": {
-                "data": "start",
+                "data": data,  # 动态调整：start 或 running
                 "prescription_code": prescription_code
             }
         })
         await _ws_connection.send(message)
-        print(f"[HIS Sender] 发送成功: start + {prescription_code}")
+        print(f"[HIS Sender] 发送成功: {data} + {prescription_code} (第{count+1}次)")
+        
+        # 更新发送计数
+        _send_count[prescription_code] = count + 1
+        
         return True
     
     except Exception as e:
@@ -210,7 +229,10 @@ async def his_sender_loop():
                 if new_code:
                     print(f"\n[HIS Sender] {'='*20}")
                     print(f"[HIS Sender] 处方编码更新: {_current_prescription_code} -> {new_code}")
+                    print(f"[HIS Sender] 发送计数器已重置")
                     print(f"[HIS Sender] {'='*20}")
+                    # 重置新处方的发送计数器
+                    _send_count[new_code] = 0
                 else:
                     print("[HIS Sender] 无待处理处方，等待新处方...")
                 _current_prescription_code = new_code
