@@ -34,6 +34,39 @@ const STATUS_LABEL: Record<string, string> = {
   pending: '待扫描', scanned_identify: '已识别', scanned_outbound: '已出库', scanned_confirm: '已完成'
 };
 
+const getTraceCodeCandidates = (value: string) => {
+  const raw = value.trim();
+  if (!raw) return [];
+  const candidates = new Set<string>([raw]);
+
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (decoded) candidates.add(decoded.trim());
+  } catch (e) {}
+
+  try {
+    const url = new URL(raw);
+    ['trace_code', 'traceCode', 'code', 'c'].forEach((key) => {
+      const paramValue = url.searchParams.get(key);
+      if (paramValue) candidates.add(paramValue.trim());
+    });
+  } catch (e) {}
+
+  for (const text of Array.from(candidates)) {
+    const compact = text.replace(/[\s-]/g, '');
+    if (/^\d{20,}$/.test(compact)) candidates.add(compact);
+    const digitMatches = text.match(/\d{20,}/g) || [];
+    digitMatches.forEach((match) => candidates.add(match));
+  }
+
+  return Array.from(candidates).filter(Boolean);
+};
+
+const normalizeTraceCodeInput = (value: string) => {
+  const candidates = getTraceCodeCandidates(value);
+  return candidates.find((candidate) => /^\d{20,}$/.test(candidate)) || candidates[0] || value.trim();
+};
+
 export default function ScanPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -43,7 +76,6 @@ export default function ScanPage() {
   const [history, setHistory] = useState<ScanEntry[]>([]);
   const [searchCode, setSearchCode] = useState('');
   const [searchResult, setSearchResult] = useState<ScanEntry | null>(null);
-  const [prescriptionId, setPrescriptionId] = useState('');
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const busyRef = useRef(false);
@@ -54,16 +86,6 @@ export default function ScanPage() {
   historyRef.current = history;
 
   const processCodeRef = useRef<(code: string) => void>(() => {});
-
-  const getCurrentPrescriptionId = () => {
-    const pid = parseInt(prescriptionId, 10);
-    if (!prescriptionId.trim() || Number.isNaN(pid)) {
-      setToast({ text: '请先输入处方ID', type: 'error' });
-      setTimeout(() => setToast(null), 2000);
-      return null;
-    }
-    return pid;
-  };
 
   const stopScanner = async () => {
     if (scannerRef.current) {
@@ -88,7 +110,7 @@ export default function ScanPage() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 280, height: 100 } },
         (decodedText: string) => {
-          const code = decodedText.trim();
+          const code = normalizeTraceCodeInput(decodedText);
           if (code) processCodeRef.current(code);
         },
         () => {}
@@ -105,17 +127,16 @@ export default function ScanPage() {
   };
 
   const processCode = async (code: string) => {
-    if (busyRef.current || code === lastCodeRef.current) return;
-    const pid = getCurrentPrescriptionId();
-    if (!pid) return;
+    const normalizedCode = normalizeTraceCodeInput(code);
+    if (busyRef.current || normalizedCode === lastCodeRef.current) return;
     busyRef.current = true;
-    lastCodeRef.current = code;
+    lastCodeRef.current = normalizedCode;
 
     try {
-      const data = await medicineTraceCodeApi.scanByCode(code, pid);
+      const data = await medicineTraceCodeApi.scanByCode(normalizedCode);
       playBeep();
       const newEntry: ScanEntry = {
-        trace_code: code,
+        trace_code: data.trace_code || normalizedCode,
         medicine_name: data.medicine_name || '',
         status: data.status || '',
         action: data.action || '',
@@ -125,7 +146,7 @@ export default function ScanPage() {
         time: formatDateTime(new Date()),
       };
       setHistory(prev => {
-        const others = prev.filter(e => e.trace_code !== code);
+        const others = prev.filter(e => e.trace_code !== newEntry.trace_code);
         return [newEntry, ...others];
       });
       setToast({ text: (data.completed ? '已完成' : data.action + '成功'), type: 'success' });
@@ -148,18 +169,17 @@ export default function ScanPage() {
 
   const handleSearch = async () => {
     if (!searchCode.trim()) return;
-    const pid = getCurrentPrescriptionId();
-    if (!pid) return;
+    const normalizedCode = normalizeTraceCodeInput(searchCode);
     try {
       const res = await fetch('/api/medicine-trace-codes/scan-by-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ trace_code: searchCode.trim(), prescription_id: pid }),
+        body: JSON.stringify({ trace_code: normalizedCode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '未找到');
       setSearchResult({
-        trace_code: searchCode.trim(),
+        trace_code: data.trace_code || normalizedCode,
         medicine_name: data.medicine_name || '',
         status: data.status || '',
         action: '',
@@ -232,13 +252,6 @@ export default function ScanPage() {
       </div>
 
       <div className="scan-ctrl">
-        <input
-          type="number"
-          placeholder="请输入处方ID（必填）"
-          value={prescriptionId}
-          onChange={e => setPrescriptionId(e.target.value)}
-          style={{ flex: 2, fontWeight: 600, fontSize: 16, textAlign: 'center' }}
-        />
         {!scanning ? (
           <button className="btn-scan" onClick={startScanner}>启动扫码</button>
         ) : (

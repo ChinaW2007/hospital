@@ -98,7 +98,6 @@ export default function PrescriptionNewPage() {
   const [note, setNote] = useState(savedDraft?.note || '');
 
   const [medSearch, setMedSearch] = useState('');
-  const [traceSearch, setTraceSearch] = useState('');
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [medSearching, setMedSearching] = useState(false);
   const [traceSearching, setTraceSearching] = useState(false);
@@ -197,7 +196,6 @@ export default function PrescriptionNewPage() {
         created_at: data.created_at || '',
       };
 
-      setTraceSearch('');
       setMedSearch('');
       setMedicines([]);
       openMedForm(medicine, traceCode);
@@ -209,7 +207,7 @@ export default function PrescriptionNewPage() {
   };
 
   const lookupTraceCode = async () => {
-    await lookupTraceCodeValue(traceSearch.trim());
+    await lookupTraceCodeValue(medSearch.trim());
   };
 
   const addMedItem = () => {
@@ -424,17 +422,14 @@ export default function PrescriptionNewPage() {
                 <input
                   className="glass-input"
                   style={{ flex: 1 }}
-                  placeholder="输入药品追溯码，自动识别对应药品..."
-                  value={traceSearch}
-                  onChange={(e) => setTraceSearch(e.target.value)}
+                  placeholder="搜索药品名称或输入追溯码..."
+                  value={medSearch}
+                  onChange={(e) => setMedSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookupTraceCode(); } }}
                 />
                 <button type="button" className="glass-btn glass-btn--primary" onClick={lookupTraceCode} disabled={traceSearching}>
                   {traceSearching ? '识别中...' : '识别'}
                 </button>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <input className="glass-input" style={{ flex: 1 }} placeholder="搜索药品名称（通用名/商品名）..." value={medSearch} onChange={(e) => setMedSearch(e.target.value)} />
               </div>
               {medSearching && <div style={{ padding: 8, color: 'var(--text-muted)', fontSize: 14 }}>搜索中...</div>}
               {medicines.length > 0 && (

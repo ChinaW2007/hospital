@@ -112,6 +112,126 @@ const validatePrescriptionLink = (record: any, prescriptionId: number | null, re
   return true;
 };
 
+const getTraceCodeCandidates = (value: unknown): string[] => {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+
+  const candidates = new Set<string>([raw]);
+
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (decoded) candidates.add(decoded.trim());
+  } catch (_e) {}
+
+  try {
+    const url = new URL(raw);
+    ['trace_code', 'traceCode', 'code', 'c'].forEach((key) => {
+      const paramValue = url.searchParams.get(key);
+      if (paramValue) candidates.add(paramValue.trim());
+    });
+  } catch (_e) {}
+
+  for (const text of Array.from(candidates)) {
+    const compact = text.replace(/[\s-]/g, '');
+    if (/^\d{20,}$/.test(compact)) {
+      candidates.add(compact);
+    }
+    const digitMatches = text.match(/\d{20,}/g) || [];
+    for (const match of digitMatches) {
+      candidates.add(match);
+    }
+  }
+
+  return Array.from(candidates).filter(Boolean);
+};
+
+const findTraceCodeByInput = async (traceCodeInput: unknown) => {
+  const candidates = getTraceCodeCandidates(traceCodeInput);
+  if (candidates.length === 0) return null;
+
+  const placeholders = candidates.map(() => '?').join(', ');
+  const [rows] = await pool.query<any[]>(
+    `SELECT * FROM medicine_trace_codes WHERE trace_code IN (${placeholders})`,
+    candidates
+  );
+
+  return rows[0] || null;
+};
+
+const getNormalizedTraceCode = (traceCodeInput: unknown) => {
+  const candidates = getTraceCodeCandidates(traceCodeInput);
+  return candidates.find((candidate) => /^\d{7,}$/.test(candidate)) || candidates[0] || '';
+};
+
+const findTraceCodeByInputForUpdate = async (conn: any, traceCodeInput: unknown) => {
+  const candidates = getTraceCodeCandidates(traceCodeInput);
+  if (candidates.length === 0) return null;
+
+  const placeholders = candidates.map(() => '?').join(', ');
+  const [rows] = await conn.query(
+    `SELECT tc.*, m.name AS medicine_name, m.specification, m.manufacturer,
+            m.drug_form, m.unit, m.price
+     FROM medicine_trace_codes tc
+     JOIN medicines m ON tc.medicine_id = m.id
+     WHERE tc.trace_code IN (${placeholders})
+     FOR UPDATE`,
+    candidates
+  );
+
+  return rows[0] || null;
+};
+
+const createOtherMedicine = async (conn: any, prefix: string) => {
+  const [result] = await conn.query(
+    `INSERT INTO medicines
+     (name, generic_name, specification, drug_form, manufacturer, unit, price, stock, category, is_narcotic, image_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ['其他', '其他', null, null, null, '盒', 0, 1, '处方药', 0, null]
+  );
+  const medicineId = result.insertId;
+  await conn.query(
+    'INSERT INTO medicine_trace_prefixes (medicine_id, prefix) VALUES (?, ?)',
+    [medicineId, prefix]
+  );
+  return medicineId;
+};
+
+const ensureTraceCodeRecordForScan = async (conn: any, traceCodeInput: unknown) => {
+  const existing = await findTraceCodeByInputForUpdate(conn, traceCodeInput);
+  if (existing) return { record: existing, created: false };
+
+  const traceCode = getNormalizedTraceCode(traceCodeInput);
+  if (!/^\d{7,}$/.test(traceCode)) {
+    throw Object.assign(new Error('追溯码至少需要包含7位数字'), { status: 400 });
+  }
+
+  const prefix = traceCode.slice(0, 7);
+  const [prefixRows] = await conn.query(
+    `SELECT p.medicine_id
+     FROM medicine_trace_prefixes p
+     WHERE p.prefix = ?
+     LIMIT 1
+     FOR UPDATE`,
+    [prefix]
+  );
+
+  const medicineId = prefixRows.length > 0
+    ? prefixRows[0].medicine_id
+    : await createOtherMedicine(conn, prefix);
+
+  if (prefixRows.length > 0) {
+    await conn.query('UPDATE medicines SET stock = COALESCE(stock, 0) + 1 WHERE id = ?', [medicineId]);
+  }
+
+  await conn.query(
+    'INSERT INTO medicine_trace_codes (medicine_id, trace_code) VALUES (?, ?)',
+    [medicineId, traceCode]
+  );
+
+  const record = await findTraceCodeByInputForUpdate(conn, traceCode);
+  return { record, created: true };
+};
+
 // POST /api/medicine-trace-codes — create user's code, then auto-generate remaining based on stock
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -355,14 +475,21 @@ router.get('/lookup', async (req: Request, res: Response) => {
       return;
     }
 
+    const candidates = getTraceCodeCandidates(traceCode);
+    if (candidates.length === 0) {
+      res.status(400).json({ error: '追溯码不能为空' });
+      return;
+    }
+
+    const placeholders = candidates.map(() => '?').join(', ');
     const [rows] = await pool.query<any[]>(
       `SELECT tc.*, m.id AS medicine_id, m.name AS medicine_name, m.generic_name,
               m.specification, m.drug_form, m.manufacturer, m.unit, m.price, m.stock,
               m.category, m.is_narcotic, m.image_url
        FROM medicine_trace_codes tc
        JOIN medicines m ON tc.medicine_id = m.id
-       WHERE tc.trace_code = ?`,
-      [traceCode]
+       WHERE tc.trace_code IN (${placeholders})`,
+      candidates
     );
 
     if (rows.length === 0) {
@@ -486,26 +613,31 @@ router.put('/:id/unscan', async (req: Request, res: Response) => {
 
 // POST /api/medicine-trace-codes/scan-by-code — scan by trace_code string (for mobile scanner)
 router.post('/scan-by-code', async (req: Request, res: Response) => {
+  const conn = await pool.getConnection();
   try {
-    const { trace_code, prescription_id } = req.body;
+    const { trace_code } = req.body;
     if (!trace_code) {
       res.status(400).json({ error: '追溯码不能为空' });
       return;
     }
 
-    const prescriptionId = prescription_id ? parseInt(prescription_id) : null;
+    await conn.beginTransaction();
 
-    // Find the trace code record
-    const [rows] = await pool.query<any[]>(
-      'SELECT * FROM medicine_trace_codes WHERE trace_code = ?', [trace_code.trim()]
-    );
-    if (rows.length === 0) {
+    const { record, created } = await ensureTraceCodeRecordForScan(conn, trace_code);
+    if (!record) {
+      await conn.rollback();
       res.status(404).json({ error: '追溯码未找到' });
       return;
     }
 
-    const record = rows[0];
-    if (!validatePrescriptionLink(record, prescriptionId, res)) {
+    if (created) {
+      await conn.commit();
+      res.json({
+        ...record,
+        action: '录入',
+        completed: false,
+        created,
+      });
       return;
     }
 
@@ -517,26 +649,32 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
     let actionName: string;
 
     if (record.status === 'pending') {
-      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan1_time = NOW(), scan1_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
-      updateParams.push('scanned_identify', userId, prescriptionId, record.id);
+      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan1_time = NOW(), scan1_user_id = ? WHERE id = ?';
+      updateParams.push('scanned_identify', userId, record.id);
       actionName = '识别';
     } else if (record.status === 'scanned_identify') {
-      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan2_time = NOW(), scan2_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
-      updateParams.push('scanned_outbound', userId, prescriptionId, record.id);
+      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan2_time = NOW(), scan2_user_id = ? WHERE id = ?';
+      updateParams.push('scanned_outbound', userId, record.id);
       actionName = '出库';
     } else if (record.status === 'scanned_outbound') {
-      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan3_time = NOW(), scan3_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
-      updateParams.push('scanned_confirm', userId, prescriptionId, record.id);
+      updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan3_time = NOW(), scan3_user_id = ? WHERE id = ?';
+      updateParams.push('scanned_confirm', userId, record.id);
       actionName = '确认';
     } else {
-      res.json({ message: '该追溯码已完成全部扫描', status: record.status, completed: true });
+      await conn.commit();
+      res.json({
+        message: '该追溯码已完成全部扫描',
+        status: record.status,
+        completed: true,
+        created,
+      });
       return;
     }
 
-    await pool.query(updateSql, updateParams);
+    await conn.query(updateSql, updateParams);
 
     // Return updated record with medicine info
-    const [updated] = await pool.query<any[]>(
+    const [updated] = await conn.query<any[]>(
       `SELECT tc.*, m.name AS medicine_name, m.specification, m.manufacturer,
         u1.real_name AS scan1_user_name, u2.real_name AS scan2_user_name, u3.real_name AS scan3_user_name
        FROM medicine_trace_codes tc
@@ -547,9 +685,19 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
        WHERE tc.id = ?`, [record.id]
     );
 
-    res.json({ ...updated[0], action: actionName, completed: actionName === '确认' });
+    await conn.commit();
+
+    res.json({
+      ...updated[0],
+      action: actionName,
+      completed: actionName === '确认',
+      created,
+    });
   } catch (err: any) {
-    res.status(500).json({ error: '服务器错误: ' + err.message });
+    await conn.rollback();
+    res.status(err.status || 500).json({ error: err.status ? err.message : '服务器错误: ' + err.message });
+  } finally {
+    conn.release();
   }
 });
 

@@ -395,13 +395,28 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     await ensurePrescriptionTraceCodesTable(conn);
     await conn.beginTransaction();
-    await conn.query('UPDATE medicine_trace_codes SET prescription_id = NULL WHERE prescription_id = ?', [id]);
+
+    const [traceRows] = await conn.query<any[]>(
+      `SELECT DISTINCT tc.id
+       FROM medicine_trace_codes tc
+       LEFT JOIN prescription_trace_codes ptc ON ptc.trace_code_id = tc.id
+       WHERE tc.prescription_id = ? OR ptc.prescription_id = ?`,
+      [id, id]
+    );
+    const traceCodeIds = traceRows.map((row) => row.id);
+
     await conn.query('DELETE FROM prescription_trace_codes WHERE prescription_id = ?', [id]);
+    if (traceCodeIds.length > 0) {
+      await conn.query(
+        `DELETE FROM medicine_trace_codes WHERE id IN (${traceCodeIds.map(() => '?').join(', ')})`,
+        traceCodeIds
+      );
+    }
     await conn.query('DELETE FROM prescription_items WHERE prescription_id = ?', [id]);
     await conn.query('DELETE FROM prescriptions WHERE id = ?', [id]);
     await conn.commit();
 
-    res.json({ message: '处方已删除' });
+    res.json({ message: `处方已删除，已删除 ${traceCodeIds.length} 个关联追溯码` });
   } catch (err: any) {
     await conn.rollback();
     res.status(500).json({ error: '服务器错误: ' + err.message });
