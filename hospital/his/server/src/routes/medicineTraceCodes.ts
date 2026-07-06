@@ -342,11 +342,18 @@ router.post('/regenerate-all', async (_req: Request, res: Response) => {
   try {
     await conn.beginTransaction();
 
-    // 1. 清空全部追溯码
+    // 1. 清空处方关联，避免外键阻止测试阶段重建追溯码
+    try {
+      await conn.query('DELETE FROM prescription_trace_codes');
+    } catch (err: any) {
+      if (err.code !== 'ER_NO_SUCH_TABLE') throw err;
+    }
+
+    // 2. 清空全部追溯码
     const [deleteResult] = await conn.query<any>('DELETE FROM medicine_trace_codes');
     const deletedCount = (deleteResult as any)?.affectedRows || 0;
 
-    // 2. 获取所有库存 > 0 的药品
+    // 3. 获取所有库存 > 0 的药品
     const [medicines] = await conn.query<any[]>('SELECT id, name, stock FROM medicines WHERE stock > 0');
 
     // 获取前缀映射表（使用当前连接以支持事务）

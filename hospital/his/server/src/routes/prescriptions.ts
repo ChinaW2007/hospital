@@ -378,6 +378,41 @@ router.put('/:id/dispense', requireRole('pharmacist', 'admin'), async (req: Requ
   }
 });
 
+// DELETE /api/prescriptions/all — delete all prescriptions and their items
+router.delete('/all', async (_req: Request, res: Response) => {
+  const conn = await pool.getConnection();
+  try {
+    await ensurePrescriptionTraceCodesTable(conn);
+    await conn.beginTransaction();
+
+    const [traceRows] = await conn.query<any[]>(
+      `SELECT DISTINCT tc.id
+       FROM medicine_trace_codes tc
+       LEFT JOIN prescription_trace_codes ptc ON ptc.trace_code_id = tc.id
+       WHERE tc.prescription_id IS NOT NULL OR ptc.prescription_id IS NOT NULL`
+    );
+    const traceCodeIds = traceRows.map((row) => row.id);
+
+    await conn.query('DELETE FROM prescription_trace_codes');
+    if (traceCodeIds.length > 0) {
+      await conn.query(
+        `DELETE FROM medicine_trace_codes WHERE id IN (${traceCodeIds.map(() => '?').join(', ')})`,
+        traceCodeIds
+      );
+    }
+    await conn.query('DELETE FROM prescription_items');
+    const [result] = await conn.query('DELETE FROM prescriptions');
+    await conn.commit();
+
+    res.json({ message: `已删除 ${(result as any).affectedRows || 0} 条处方，已删除 ${traceCodeIds.length} 个关联追溯码` });
+  } catch (err: any) {
+    await conn.rollback();
+    res.status(500).json({ error: '服务器错误: ' + err.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // DELETE /api/prescriptions/:id — delete prescription and its items
 router.delete('/:id', async (req: Request, res: Response) => {
   const conn = await pool.getConnection();

@@ -34,6 +34,7 @@ export default function PrescriptionListPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Prescription | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const pageSize = 10;
 
   const load = async (p: number, status: string, type: string) => {
@@ -62,12 +63,27 @@ export default function PrescriptionListPage() {
     } catch (err: any) { alert(err.response?.data?.error || '删除失败'); }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      await prescriptionApi.deleteAll();
+      setConfirmDeleteAll(false);
+      setPage(1);
+      load(1, statusFilter, typeFilter);
+    } catch (err: any) { alert(err.response?.data?.error || '一键删除失败'); }
+  };
+
   return (
     <div>
       <motion.div className="page-header flex-between" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div>
           <h1>处方记录</h1>
           <p>查看所有处方信息</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <motion.button className="glass-btn glass-btn--danger glass-btn--sm" onClick={() => setConfirmDeleteAll(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            一键删除
+          </motion.button>
+          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>只在测试阶段使用</span>
         </div>
       </motion.div>
 
@@ -150,6 +166,21 @@ export default function PrescriptionListPage() {
               <div className="confirm-actions">
                 <motion.button className="glass-btn glass-btn--danger" onClick={handleDelete} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认删除</motion.button>
                 <button className="glass-btn glass-btn--outline" onClick={() => setConfirmDelete(null)}>取消</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDeleteAll && (
+          <motion.div className="confirm-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="confirm-dialog glass-card" initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
+              <h3>确认一键删除</h3>
+              <p>确定要删除所有处方及其所有药品明细吗？此操作不可撤销。</p>
+              <div className="confirm-actions">
+                <motion.button className="glass-btn glass-btn--danger" onClick={handleDeleteAll} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认一键删除</motion.button>
+                <button className="glass-btn glass-btn--outline" onClick={() => setConfirmDeleteAll(false)}>取消</button>
               </div>
             </motion.div>
           </motion.div>

@@ -11,7 +11,7 @@ import ReviewPage from './pages/ReviewPage';
 import MedicinePage from './pages/MedicinePage';
 import MedicineLocationsPage from './pages/MedicineLocationsPage';
 import ScanPage from './pages/ScanPage';
-import PlaceholderPage from './pages/PlaceholderPage';
+import BasicModulePage from './pages/BasicModulePage';
 import { useAuth } from './hooks/useAuth';
 
 const isMobile = (): boolean => {
@@ -74,13 +74,14 @@ export default function App() {
       <Route path="/medicines" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-info" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-locations" element={<PrivateRoute><MedicineLocationsPage /></PrivateRoute>} />
-      <Route path="/dispense" element={<PrivateRoute><PlaceholderPage title="医嘱取药" icon="dispense" /></PrivateRoute>} />
-      <Route path="/medicine-settings" element={<PrivateRoute><PlaceholderPage title="药盒设置" icon="medicineSettings" /></PrivateRoute>} />
-      <Route path="/reports" element={<PrivateRoute><PlaceholderPage title="报表生成" icon="reports" /></PrivateRoute>} />
-      <Route path="/writeoff" element={<PrivateRoute><PlaceholderPage title="销账" icon="writeoff" /></PrivateRoute>} />
-      <Route path="/operation-log" element={<PrivateRoute><PlaceholderPage title="操作记录" icon="operationLog" /></PrivateRoute>} />
-      <Route path="/restock" element={<PrivateRoute><PlaceholderPage title="补药" icon="restock" /></PrivateRoute>} />
-      <Route path="/inventory" element={<PrivateRoute><PlaceholderPage title="库存查询" icon="inventory" /></PrivateRoute>} />
+      <Route path="/dispense" element={<PrivateRoute><BasicModulePage kind="dispense" title="医嘱取药" icon="dispense" /></PrivateRoute>} />
+      <Route path="/medicine-settings" element={<PrivateRoute><BasicModulePage kind="medicineSettings" title="药盒设置" icon="medicineSettings" /></PrivateRoute>} />
+      <Route path="/reports" element={<PrivateRoute><BasicModulePage kind="reports" title="报表生成" icon="reports" /></PrivateRoute>} />
+      <Route path="/writeoff" element={<PrivateRoute><BasicModulePage kind="writeoff" title="销账" icon="writeoff" /></PrivateRoute>} />
+      <Route path="/operation-log" element={<PrivateRoute><BasicModulePage kind="operationLog" title="操作记录" icon="operationLog" /></PrivateRoute>} />
+      <Route path="/medicine-down" element={<PrivateRoute><BasicModulePage kind="medicineDown" title="药品下架" icon="medicineDown" /></PrivateRoute>} />
+      <Route path="/restock" element={<PrivateRoute><BasicModulePage kind="restock" title="补药" icon="restock" /></PrivateRoute>} />
+      <Route path="/inventory" element={<PrivateRoute><BasicModulePage kind="inventory" title="库存查询" icon="inventory" /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

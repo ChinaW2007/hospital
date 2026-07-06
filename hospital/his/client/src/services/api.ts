@@ -168,6 +168,9 @@ export const prescriptionApi = {
 
   delete: (id: number) =>
     api.delete(`/prescriptions/${id}`).then((r) => r.data),
+
+  deleteAll: () =>
+    api.delete('/prescriptions/all').then((r) => r.data),
 };
 
 export default api;

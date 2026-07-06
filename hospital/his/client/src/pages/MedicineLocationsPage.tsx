@@ -7,7 +7,7 @@ import { showToast } from '../components/Toast';
 import ModuleIcon from '../components/ModuleIcon';
 import { formatDateTime } from '../utils/date';
 
-const emptyForm: MedicineLocationFormData = { medicine_id: 0, medicine_name: '', x: '', y: '', z: '' };
+const emptyForm: MedicineLocationFormData = { medicine_id: 0, medicine_name: '', x: 1, y: 1, z: 1 };
 
 export default function MedicineLocationsPage() {
   const [locations, setLocations] = useState<MedicineLocation[]>([]);
@@ -16,7 +16,6 @@ export default function MedicineLocationsPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<MedicineLocationFormData>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<MedicineLocation | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -30,7 +29,7 @@ export default function MedicineLocationsPage() {
   const openNew = () => { setEditId(null); setForm(emptyForm); setModalOpen(true); };
 
   const openEdit = (loc: MedicineLocation) => {
-    setEditId(loc.id);
+    setEditId(loc.id || null);
     setForm({ medicine_id: loc.medicine_id, medicine_name: loc.medicine_name, x: loc.x, y: loc.y, z: loc.z });
     setModalOpen(true);
   };
@@ -46,12 +45,6 @@ export default function MedicineLocationsPage() {
     finally { setSubmitting(false); }
   };
 
-  const handleDelete = async () => {
-    if (!confirmDelete) return;
-    try { await medicineLocationApi.delete(confirmDelete.id); setConfirmDelete(null); load(); }
-    catch (err: any) { showToast(err.response?.data?.error || '删除失败', 'error'); }
-  };
-
   return (
     <div>
       <motion.div className="page-header flex-between" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
@@ -65,7 +58,7 @@ export default function MedicineLocationsPage() {
       <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         {loading ? <div className="loading">加载中...</div> :
          locations.length === 0 ? <div className="empty-state"><div className="empty-icon"><ModuleIcon name="medicineLocations" size={48} /></div><p>暂无位置数据</p></div> :
-         <table className="glass-table">
+         <table className="glass-table medicine-location-table">
            <thead><tr><th>药品名称</th><th>X 轴</th><th>Y 轴</th><th>Z 轴</th><th>创建时间</th><th>操作</th></tr></thead>
            <tbody>
              {locations.map((loc) => (
@@ -83,7 +76,6 @@ export default function MedicineLocationsPage() {
                  <td>
                    <div className="action-btns">
                      <button className="glass-btn glass-btn--outline glass-btn--sm" onClick={() => openEdit(loc)}>编辑</button>
-                     <button className="glass-btn glass-btn--danger glass-btn--sm" onClick={() => setConfirmDelete(loc)}>删除</button>
                    </div>
                  </td>
                </tr>
@@ -108,19 +100,6 @@ export default function MedicineLocationsPage() {
           </div>
         </form>
       </Modal>
-
-      {confirmDelete && (
-        <div className="confirm-overlay" onClick={() => setConfirmDelete(null)}>
-          <div className="confirm-dialog glass-card" onClick={(e) => e.stopPropagation()}>
-            <h3>确认删除</h3>
-            <p>确定要删除「{confirmDelete.medicine_name}」的位置信息吗？</p>
-            <div className="confirm-actions">
-              <button className="glass-btn glass-btn--danger" onClick={handleDelete}>确认删除</button>
-              <button className="glass-btn glass-btn--outline" onClick={() => setConfirmDelete(null)}>取消</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

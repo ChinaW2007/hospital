@@ -233,6 +233,10 @@ export default function MedicinePage() {
               const res = await medicineTraceCodeApi.regenerateAll();
               showToast(res.message, 'success');
               loadList(page, keyword);
+              if (expandedMedicineId) {
+                setTraceCodePage(1);
+                loadTraceCodes(expandedMedicineId, 1);
+              }
             } catch (err: any) { showToast(err.response?.data?.error || '操作失败', 'error'); }
           }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             清空重新生成

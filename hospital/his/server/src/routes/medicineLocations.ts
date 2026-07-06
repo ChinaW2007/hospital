@@ -13,23 +13,28 @@ router.get('/', async (req: Request, res: Response) => {
     const keyword = (req.query.keyword as string) || '';
     const offset = (page - 1) * pageSize;
 
-    let countSql = 'SELECT COUNT(*) as total FROM medicine_locations';
+    let countSql = 'SELECT COUNT(*) as total FROM medicines m';
     let listSql = `
-      SELECT ml.*, m.specification, m.manufacturer, p.prefix AS trace_code_prefix
-      FROM medicine_locations ml
-      LEFT JOIN medicines m ON ml.medicine_id = m.id
-      LEFT JOIN medicine_trace_prefixes p ON ml.medicine_id = p.medicine_id
+      SELECT COALESCE(ml.id, 0) AS id, m.id AS medicine_id, m.name AS medicine_name,
+             COALESCE(ml.x, 1) AS x, COALESCE(ml.y, 1) AS y, COALESCE(ml.z, 1) AS z,
+             COALESCE(ml.created_at, m.created_at) AS created_at,
+             m.specification, m.manufacturer, p.prefix AS trace_code_prefix
+      FROM medicines m
+      LEFT JOIN medicine_locations ml ON ml.id = (
+        SELECT id FROM medicine_locations WHERE medicine_id = m.id ORDER BY id ASC LIMIT 1
+      )
+      LEFT JOIN medicine_trace_prefixes p ON m.id = p.medicine_id
     `;
     const params: any[] = [];
 
     if (keyword) {
-      const where = ' WHERE ml.medicine_name LIKE ?';
+      const where = ' WHERE m.name LIKE ?';
       countSql += where;
       listSql += where;
       params.push(`%${keyword}%`);
     }
 
-    listSql += ' ORDER BY ml.id ASC LIMIT ? OFFSET ?';
+    listSql += ' ORDER BY m.id ASC LIMIT ? OFFSET ?';
 
     const [countRows] = await pool.query<any[]>(countSql, params.length ? params : undefined);
     const total = countRows[0]?.total || 0;
@@ -71,16 +76,40 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/medicine-locations — create
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { medicine_id, medicine_name, x, y, z } = req.body;
+    const { medicine_id, x, y, z } = req.body;
 
-    if (!medicine_id || !medicine_name) {
-      res.status(400).json({ error: '药品ID和药品名称为必填项' });
+    if (!medicine_id) {
+      res.status(400).json({ error: '药品ID为必填项' });
+      return;
+    }
+
+    const [medicineRows] = await pool.query<any[]>(
+      'SELECT name FROM medicines WHERE id = ?',
+      [medicine_id]
+    );
+
+    if (medicineRows.length === 0) {
+      res.status(404).json({ error: '药品不存在' });
+      return;
+    }
+
+    const [locationRows] = await pool.query<any[]>(
+      'SELECT id FROM medicine_locations WHERE medicine_id = ? ORDER BY id ASC LIMIT 1',
+      [medicine_id]
+    );
+
+    if (locationRows.length > 0) {
+      await pool.query(
+        'UPDATE medicine_locations SET medicine_name=?, x=?, y=?, z=? WHERE id=?',
+        [medicineRows[0].name, x ?? 1, y ?? 1, z ?? 1, locationRows[0].id]
+      );
+      res.status(200).json({ id: locationRows[0].id, message: '药品位置信息已更新' });
       return;
     }
 
     const [result] = await pool.query(
       'INSERT INTO medicine_locations (medicine_id, medicine_name, x, y, z) VALUES (?, ?, ?, ?, ?)',
-      [medicine_id, medicine_name, x ?? 0, y ?? 0, z ?? 0]
+      [medicine_id, medicineRows[0].name, x ?? 1, y ?? 1, z ?? 1]
     );
 
     res.status(201).json({ id: (result as any).insertId, message: '药品位置信息已保存' });
@@ -93,11 +122,21 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { medicine_id, medicine_name, x, y, z } = req.body;
+    const { medicine_id, x, y, z } = req.body;
+
+    const [medicineRows] = await pool.query<any[]>(
+      'SELECT name FROM medicines WHERE id = ?',
+      [medicine_id]
+    );
+
+    if (medicineRows.length === 0) {
+      res.status(404).json({ error: '药品不存在' });
+      return;
+    }
 
     await pool.query(
       'UPDATE medicine_locations SET medicine_id=?, medicine_name=?, x=?, y=?, z=? WHERE id=?',
-      [medicine_id, medicine_name, x ?? 0, y ?? 0, z ?? 0, id]
+      [medicine_id, medicineRows[0].name, x ?? 1, y ?? 1, z ?? 1, id]
     );
 
     res.json({ message: '药品位置信息已更新' });
