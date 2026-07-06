@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:his_mobile/core/network/api_client.dart';
 import 'package:his_mobile/providers/auth_provider.dart';
@@ -88,6 +90,7 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
 
   // 切换分区
   void _onTabTapped(int index) {
+    HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
     });
@@ -153,43 +156,43 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
     );
   }
 
-  // 渲染苹果悬浮磨砂底栏
+  // 渲染苹果悬浮磨砂底栏 (Cupertino Navigation Elements)
   Widget _buildFloatingBottomBar(bool isDark) {
     final List<Map<String, dynamic>> items = [
-      {'icon': Icons.dashboard_outlined, 'activeIcon': Icons.dashboard_rounded, 'label': '工作台'},
-      {'icon': Icons.note_add_outlined, 'activeIcon': Icons.note_add_rounded, 'label': '开具'},
-      {'icon': Icons.fact_check_outlined, 'activeIcon': Icons.fact_check_rounded, 'label': '审核'},
-      {'icon': Icons.people_outline_rounded, 'activeIcon': Icons.people_rounded, 'label': '病人'},
-      {'icon': Icons.medication_outlined, 'activeIcon': Icons.medication_rounded, 'label': '药品'},
+      {'icon': CupertinoIcons.square_grid_2x2, 'activeIcon': CupertinoIcons.square_grid_2x2_fill, 'label': '工作台'},
+      {'icon': CupertinoIcons.plus_rectangle, 'activeIcon': CupertinoIcons.plus_rectangle_fill, 'label': '开具'},
+      {'icon': CupertinoIcons.checkmark_seal, 'activeIcon': CupertinoIcons.checkmark_seal_fill, 'label': '审核'},
+      {'icon': CupertinoIcons.person_2, 'activeIcon': CupertinoIcons.person_2_fill, 'label': '病人'},
+      {'icon': CupertinoIcons.bandage, 'activeIcon': CupertinoIcons.bandage_fill, 'label': '药品'},
     ];
 
     return Container(
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            height: 68,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: isDark 
-                  ? Colors.black.withValues(alpha: 0.6) 
-                  : Colors.white.withValues(alpha: 0.75),
+                  ? const Color(0xFF1E293B).withValues(alpha: 0.35) 
+                  : Colors.white.withValues(alpha: 0.45),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
                 color: isDark 
-                    ? Colors.white.withValues(alpha: 0.08) 
-                    : Colors.white.withValues(alpha: 0.4),
-                width: 1.0,
+                    ? Colors.white.withValues(alpha: 0.12) 
+                    : Colors.white.withValues(alpha: 0.5),
+                width: 0.8,
               ),
             ),
             child: Row(
@@ -206,9 +209,9 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
                         Icon(
                           isSelected ? item['activeIcon'] as IconData : item['icon'] as IconData,
                           color: isSelected 
-                              ? const Color(0xFF00796B) 
-                              : (isDark ? Colors.white60 : Colors.black45),
-                          size: 24,
+                              ? const Color(0xFF009688) 
+                              : (isDark ? Colors.white54 : Colors.black45),
+                          size: 22,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -217,7 +220,7 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
                             fontSize: 10,
                             fontWeight: isSelected ? FontWeight.w900 : FontWeight.normal,
                             color: isSelected 
-                                ? const Color(0xFF00796B) 
+                                ? const Color(0xFF009688) 
                                 : (isDark ? Colors.white54 : Colors.black54),
                           ),
                         ),
@@ -230,6 +233,80 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
           ),
         ),
       ),
+    );
+  }
+
+  // 苹果极高水准 Aurora 背景光晕
+  Widget _buildBackgroundGlows(bool isDark) {
+    if (!isDark) {
+      return Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF009688).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            right: -120,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF7B1FA2).withValues(alpha: 0.16),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Stack(
+      children: [
+        Positioned(
+          top: -120,
+          left: -80,
+          child: Container(
+            width: 340,
+            height: 340,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF009688).withValues(alpha: 0.18),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 240,
+          right: -100,
+          child: Container(
+            width: 320,
+            height: 320,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF7B1FA2).withValues(alpha: 0.14),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -150,
+          left: -100,
+          child: Container(
+            width: 400,
+            height: 400,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF0288D1).withValues(alpha: 0.16),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -248,430 +325,490 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
               : [const Color(0xFFEAF6FF), const Color(0xFFEDFDF8), const Color(0xFFFFF2F7)],
         ),
       ),
-      child: SafeArea(
-        bottom: false, // 底部留空给悬浮底栏
-        child: RefreshIndicator(
-          onRefresh: _fetchStats,
-          color: const Color(0xFF009688),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // 1. 顶部大标题 + 头像 (苹果风格宽敞头部)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 16.0),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: const Color(0xFF00796B),
-                        child: Text(
-                          user.realName.isNotEmpty ? user.realName.substring(0, 1) : '药',
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '仁爱医院 HIS',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                color: isDark ? Colors.white : const Color(0xFF004D40),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '欢迎，${user.realName} (${user.role == 'doctor' ? '医生' : '药师'}) · $_timeString',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                        onPressed: () => auth.logout(),
-                        tooltip: '退出登录',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 2. iOS 风格 Stats 看板 (待审核 / 药品 / 病人 整合)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                  child: Row(
-                    children: [
-                      // 待审核 (大卡片)
-                      Expanded(
-                        flex: 5,
-                        child: AnimatedScaleButton(
-                          onTap: () => _onTabTapped(2),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                            decoration: BoxDecoration(
-                              color: isDark 
-                                  ? const Color(0xFF1E3A3A).withValues(alpha: 0.7) 
-                                  : const Color(0xFFE0F2F1).withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isDark 
-                                    ? const Color(0xFF00796B).withValues(alpha: 0.3) 
-                                    : const Color(0xFF00796B).withValues(alpha: 0.15),
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '$_pendingPrescriptions',
-                                      style: TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w900,
-                                        color: isDark ? const Color(0xFF4DB6AC) : const Color(0xFF00796B),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '待审核处方',
-                                      style: TextStyle(
-                                        color: isDark ? const Color(0xFF80CBC4) : const Color(0xFF00796B),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Icon(
-                                  Icons.pending_actions_rounded,
-                                  color: isDark ? const Color(0xFF4DB6AC) : const Color(0xFF00796B),
-                                  size: 30,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // 药品与病人 (双卡)
-                      Expanded(
-                        flex: 6,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: AnimatedScaleButton(
-                                onTap: () => _onTabTapped(4),
-                                child: GlassCard(
-                                  margin: EdgeInsets.zero,
-                                  padding: const EdgeInsets.all(12.0),
-                                  borderRadius: 20,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$_totalMedicines',
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF7B1FA2),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      const Text(
-                                        '药品品类',
-                                        style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AnimatedScaleButton(
-                                onTap: () => _onTabTapped(3),
-                                child: GlassCard(
-                                  margin: EdgeInsets.zero,
-                                  padding: const EdgeInsets.all(12.0),
-                                  borderRadius: 20,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$_totalPatients',
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF0288D1),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      const Text(
-                                        '在册病人',
-                                        style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 3. 核心功能大药丸面板 (2列精美宽舒布局)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.22,
-                  ),
-                  delegate: SliverChildListDelegate([
-                    _buildActionCard(
-                      title: '药盒汇总',
-                      subtitle: '药盒数据状态看板',
-                      icon: Icons.all_inbox_rounded,
-                      color: const Color(0xFF009688),
-                      onTap: () => _onTabTapped(2),
-                    ),
-                    _buildActionCard(
-                      title: '处方审核',
-                      subtitle: '快捷扫码复核与配药',
-                      icon: Icons.fact_check_rounded,
-                      color: const Color(0xFF00796B),
-                      onTap: () => _onTabTapped(2),
-                    ),
-                    _buildActionCard(
-                      title: '病人管理',
-                      subtitle: '患者列表与建档表单',
-                      icon: Icons.assignment_ind_rounded,
-                      color: const Color(0xFF0288D1),
-                      onTap: () => _onTabTapped(3),
-                    ),
-                    _buildActionCard(
-                      title: '药品管理',
-                      subtitle: '药品规格与库存统计',
-                      icon: Icons.grid_view_rounded,
-                      color: const Color(0xFF7B1FA2),
-                      onTap: () => _onTabTapped(4),
-                    ),
-                  ]),
-                ),
-              ),
-
-              // 4. 更多辅助工具折叠抽屉
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
-                  child: GlassCard(
-                    margin: EdgeInsets.zero,
-                    padding: EdgeInsets.zero,
-                    borderRadius: 20,
-                    child: Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        title: Text(
-                          '更多临床与管理工具',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white70 : Colors.black87,
-                          ),
-                        ),
-                        leading: const Icon(Icons.apps_rounded, color: Colors.grey),
-                        trailing: Icon(
-                          _toolsExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                          color: Colors.grey,
-                        ),
-                        onExpansionChanged: (expanded) {
-                          setState(() {
-                            _toolsExpanded = expanded;
-                          });
-                        },
+      child: Stack(
+        children: [
+          // 极光光晕背景
+          Positioned.fill(child: _buildBackgroundGlows(isDark)),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          // 页面主体
+          SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: _fetchStats,
+              color: const Color(0xFF009688),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // 1. 顶部大标题 + 头像 (苹果风格宽敞头部)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 16.0),
+                      child: Row(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                            child: GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: 4,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 0.9,
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: const Color(0xFF00796B),
+                            child: Text(
+                              user.realName.isNotEmpty ? user.realName.substring(0, 1) : '药',
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildMinorTool('医院取药', Icons.local_hospital_outlined),
-                                _buildMinorTool('报表生成', Icons.analytics_outlined),
-                                _buildMinorTool('药盒设置', Icons.settings_suggest_outlined),
-                                _buildMinorTool('销账管理', Icons.receipt_long_outlined),
-                                _buildMinorTool('操作记录', Icons.history_outlined),
-                                _buildMinorTool('药品下架', Icons.vertical_align_bottom_outlined),
-                                _buildMinorTool('补药汇总', Icons.add_business_outlined),
-                                _buildMinorTool('库存查询', Icons.search_outlined),
+                                Text(
+                                  '仁爱医院 HIS',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: isDark ? Colors.white : const Color(0xFF0B1B2A),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '欢迎，${user.realName} (${user.role == 'doctor' ? '医生' : '药师'}) · $_timeString',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark ? Colors.white60 : Colors.black54,
+                                  ),
+                                ),
                               ],
                             ),
-                          )
+                          ),
+                          IconButton(
+                            icon: const Icon(CupertinoIcons.square_arrow_right, color: Colors.redAccent, size: 22),
+                            onPressed: () {
+                              HapticFeedback.heavyImpact();
+                              auth.logout();
+                            },
+                            tooltip: '退出登录',
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ),
-              ),
 
-              // 5. 最近处方板块 (完全舒展开)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20.0, 28.0, 20.0, 10.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.history_edu_rounded, color: Color(0xFF00796B), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        '最近处方',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : const Color(0xFF1E293B),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20.0, 0, 20.0, 110.0), // 留空给悬浮底栏
-                sliver: SliverToBoxAdapter(
-                  child: _recentPrescriptions.isEmpty
-                      ? const GlassCard(
-                          margin: EdgeInsets.zero,
-                          padding: EdgeInsets.all(28.0),
-                          borderRadius: 20,
-                          child: Center(
-                            child: Text('暂无最新处方记录', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                          ),
-                        )
-                      : GlassCard(
-                          margin: EdgeInsets.zero,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          borderRadius: 20,
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _recentPrescriptions.length,
-                            separatorBuilder: (context, idx) => const Divider(height: 1, color: Colors.black12),
-                            itemBuilder: (context, idx) {
-                              final p = _recentPrescriptions[idx];
-                              
-                              // 状态对应的中文文本与颜色
-                              String statusText = p.statusText;
-                              Color statusColor = Colors.grey;
-                              switch (p.status) {
-                                case 'pending':
-                                  statusColor = Colors.orange;
-                                  break;
-                                case 'approved':
-                                  statusColor = Colors.blue;
-                                  break;
-                                case 'dispensing':
-                                  statusColor = Colors.purple;
-                                  break;
-                                case 'completed':
-                                  statusColor = Colors.green;
-                                  break;
-                                case 'rejected':
-                                  statusColor = Colors.red;
-                                  break;
-                              }
-
-                              return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                                title: Row(
+                  // 2. iOS 风格 Stats 看板 (待审核 / 药品 / 病人 整合)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                      child: Row(
+                        children: [
+                          // 待审核 (大卡片)
+                          Expanded(
+                            flex: 5,
+                            child: AnimatedScaleButton(
+                              onTap: () => _onTabTapped(2),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isDark 
+                                        ? [const Color(0xFF00796B).withValues(alpha: 0.35), const Color(0xFF004D40).withValues(alpha: 0.15)]
+                                        : [const Color(0xFFE0F2F1), const Color(0xFFB2DFDB)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: isDark 
+                                      ? const Color(0xFF00796B).withValues(alpha: 0.45) 
+                                      : const Color(0xFF00796B).withValues(alpha: 0.25),
+                                    width: 1.0,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00796B).withValues(alpha: isDark ? 0.12 : 0.05),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 8),
+                                    )
+                                  ]
+                                ),
+                                child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      '${p.patientName ?? "未知"} (${p.patientGender ?? "未知"} · ${p.patientAge ?? "未知"}岁)',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800, 
-                                        fontSize: 14,
-                                        color: isDark ? Colors.white : const Color(0xFF1E293B),
-                                      ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '$_pendingPrescriptions',
+                                          style: TextStyle(
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w900,
+                                            color: isDark ? const Color(0xFF4DB6AC) : const Color(0xFF00796B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '待审核处方',
+                                          style: TextStyle(
+                                            color: isDark ? const Color(0xFF80CBC4) : const Color(0xFF00796B),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: statusColor.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
+                                    Icon(
+                                      CupertinoIcons.time,
+                                      color: isDark ? const Color(0xFF4DB6AC) : const Color(0xFF00796B),
+                                      size: 26,
                                     ),
                                   ],
                                 ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '处方编号: ${p.prescriptionCode}',
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '临床诊断: ${p.diagnosis ?? "未录入"} | 医生: ${p.doctorName ?? "管理员"}',
-                                        style: TextStyle(
-                                          fontSize: 12, 
-                                          color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // 药品与病人 (双卡)
+                          Expanded(
+                            flex: 6,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: AnimatedScaleButton(
+                                    onTap: () => _onTabTapped(4),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        gradient: LinearGradient(
+                                          colors: isDark
+                                              ? [const Color(0xFF7B1FA2).withValues(alpha: 0.25), Colors.white.withValues(alpha: 0.02)]
+                                              : [const Color(0xFFF3E5F5), Colors.white.withValues(alpha: 0.8)],
+                                        ),
+                                        border: Border.all(
+                                          color: isDark ? const Color(0xFF7B1FA2).withValues(alpha: 0.35) : const Color(0xFFE1BEE7),
                                         ),
                                       ),
-                                    ],
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '$_totalMedicines',
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFFAB47BC),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            '药品品类',
+                                            style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PrescriptionDetailPage(prescriptionId: p.id),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: AnimatedScaleButton(
+                                    onTap: () => _onTabTapped(3),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        gradient: LinearGradient(
+                                          colors: isDark
+                                              ? [const Color(0xFF0288D1).withValues(alpha: 0.25), Colors.white.withValues(alpha: 0.02)]
+                                              : [const Color(0xFFE1F5FE), Colors.white.withValues(alpha: 0.8)],
+                                        ),
+                                        border: Border.all(
+                                          color: isDark ? const Color(0xFF0288D1).withValues(alpha: 0.35) : const Color(0xFFB3E5FC),
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '$_totalPatients',
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF29B6F6),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            '在册病人',
+                                            style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ).then((_) => _fetchStats()); // 返回时自动刷新
-                                },
-                              );
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 3. 核心功能大药丸面板 (2列精美宽舒渐变布局)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.22,
+                      ),
+                      delegate: SliverChildListDelegate([
+                        _buildActionCard(
+                          title: '开具处方',
+                          subtitle: '临床医生新开方',
+                          icon: CupertinoIcons.plus_rectangle,
+                          color: const Color(0xFF009688),
+                          onTap: () => _onTabTapped(1),
+                        ),
+                        _buildActionCard(
+                          title: '处方审核',
+                          subtitle: '扫码配药与复核',
+                          icon: CupertinoIcons.checkmark_seal,
+                          color: const Color(0xFF00897B),
+                          onTap: () => _onTabTapped(2),
+                        ),
+                        _buildActionCard(
+                          title: '病人档案',
+                          subtitle: '就诊人信息与建档',
+                          icon: CupertinoIcons.person_crop_square,
+                          color: const Color(0xFF0288D1),
+                          onTap: () => _onTabTapped(3),
+                        ),
+                        _buildActionCard(
+                          title: '药品总览',
+                          subtitle: '药品名录及库存数',
+                          icon: CupertinoIcons.bandage,
+                          color: const Color(0xFF7B1FA2),
+                          onTap: () => _onTabTapped(4),
+                        ),
+                      ]),
+                    ),
+                  ),
+
+                  // 4. 更多辅助工具折叠抽屉 (Cupertino style)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+                      child: GlassCard(
+                        margin: EdgeInsets.zero,
+                        padding: EdgeInsets.zero,
+                        borderRadius: 22,
+                        child: Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            title: Text(
+                              '更多临床与管理工具',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white70 : const Color(0xFF0B1B2A),
+                              ),
+                            ),
+                            leading: const Icon(CupertinoIcons.grid, color: Colors.grey, size: 18),
+                            trailing: Icon(
+                              _toolsExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
+                              color: Colors.grey,
+                              size: 16,
+                            ),
+                            onExpansionChanged: (expanded) {
+                              setState(() {
+                                _toolsExpanded = expanded;
+                              });
                             },
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                                child: GridView.count(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  crossAxisCount: 4,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 0.9,
+                                  children: [
+                                    _buildMinorTool('医院取药', CupertinoIcons.location_fill),
+                                    _buildMinorTool('报表生成', CupertinoIcons.chart_bar_fill),
+                                    _buildMinorTool('药盒设置', CupertinoIcons.settings),
+                                    _buildMinorTool('销账管理', CupertinoIcons.list_bullet),
+                                    _buildMinorTool('操作记录', CupertinoIcons.time),
+                                    _buildMinorTool('药品下架', CupertinoIcons.arrow_down),
+                                    _buildMinorTool('补药汇总', CupertinoIcons.plus_rectangle_fill),
+                                    _buildMinorTool('库存查询', CupertinoIcons.search),
+                                  ],
+                                ),
+                              )
+                            ],
                           ),
                         ),
-                ),
+                      ),
+                    ),
+                  ),
+
+                  // 5. 最近处方板块 (完全舒展开)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 28.0, 20.0, 10.0),
+                      child: Row(
+                        children: [
+                          const Icon(CupertinoIcons.time, color: Color(0xFF00796B), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '最近处方',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20.0, 0, 20.0, 110.0), // 留空给悬浮底栏
+                    sliver: SliverToBoxAdapter(
+                      child: _recentPrescriptions.isEmpty
+                          ? const GlassCard(
+                              margin: EdgeInsets.zero,
+                              padding: EdgeInsets.all(28.0),
+                              borderRadius: 20,
+                              child: Center(
+                                child: Text('暂无最新处方记录', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                              ),
+                            )
+                          : GlassCard(
+                              margin: EdgeInsets.zero,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              borderRadius: 22,
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _recentPrescriptions.length,
+                                separatorBuilder: (context, idx) => const Divider(height: 1, color: Colors.black12),
+                                itemBuilder: (context, idx) {
+                                  final p = _recentPrescriptions[idx];
+                                  
+                                  // 状态对应的中文文本与颜色
+                                  String statusText = p.statusText;
+                                  Color statusColor = Colors.grey;
+                                  switch (p.status) {
+                                    case 'pending':
+                                      statusColor = const Color(0xFFFF9F0A);
+                                      break;
+                                    case 'approved':
+                                      statusColor = const Color(0xFF007AFF);
+                                      break;
+                                    case 'dispensing':
+                                      statusColor = const Color(0xFFBF5AF2);
+                                      break;
+                                    case 'completed':
+                                      statusColor = const Color(0xFF30D158);
+                                      break;
+                                    case 'rejected':
+                                      statusColor = const Color(0xFFFF453A);
+                                      break;
+                                  }
+
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                                    title: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '${p.patientName ?? "未知"} (${p.patientGender ?? "未知"} · ${p.patientAge ?? "未知"}岁)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900, 
+                                            fontSize: 14,
+                                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: statusColor.withValues(alpha: 0.25), width: 0.8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: 5,
+                                                height: 5,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: statusColor,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                statusText,
+                                                style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '处方编号: ${p.prescriptionCode}',
+                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '临床诊断: ${p.diagnosis ?? "未录入"} | 医生: ${p.doctorName ?? "管理员"}',
+                                            style: TextStyle(
+                                              fontSize: 12, 
+                                              color: isDark ? Colors.white60 : Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => PrescriptionDetailPage(prescriptionId: p.id),
+                                        ),
+                                      ).then((_) => _fetchStats()); // 返回时自动刷新
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  // 构建核心大功能卡片的方法
+  // 构建核心大功能卡片的方法 (高级渐变玻璃拟态)
   Widget _buildActionCard({
     required String title,
     required String subtitle,
@@ -682,10 +819,37 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedScaleButton(
       onTap: onTap,
-      child: GlassCard(
-        margin: EdgeInsets.zero,
-        padding: const EdgeInsets.all(16.0),
-        borderRadius: 20,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    color.withValues(alpha: 0.15),
+                    Colors.white.withValues(alpha: 0.03),
+                  ]
+                : [
+                    color.withValues(alpha: 0.08),
+                    Colors.white.withValues(alpha: 0.7),
+                  ],
+          ),
+          border: Border.all(
+            color: isDark 
+                ? color.withValues(alpha: 0.25) 
+                : color.withValues(alpha: 0.15),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: isDark ? 0.08 : 0.03),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            )
+          ],
+        ),
+        padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -696,7 +860,7 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
                 color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: Icon(icon, color: color, size: 20),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,24 +886,38 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
     );
   }
 
-  // 构建未开放的次要功能
+  // 构建未开放的次要功能 (灰化加密码锁)
   Widget _buildMinorTool(String title, IconData icon) {
     return AnimatedScaleButton(
       onTap: () {
+        HapticFeedback.heavyImpact();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该功能正在升级开发中，暂未开放'), duration: Duration(milliseconds: 800)),
+          const SnackBar(content: Text('该模块正在合规升级中，暂未对当前岗位开放'), duration: Duration(milliseconds: 1200)),
         );
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.lock_outline_rounded, color: Colors.grey, size: 18),
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.grey.shade400, size: 16),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.redAccent,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(2),
+                child: const Icon(CupertinoIcons.lock, color: Colors.white, size: 8),
+              )
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -772,7 +950,7 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline, size: 64, color: Colors.red.withValues(alpha: 0.7)),
+              Icon(CupertinoIcons.lock, size: 64, color: Colors.red.withValues(alpha: 0.7)),
               const SizedBox(height: 16),
               const Text(
                 '权限不足',

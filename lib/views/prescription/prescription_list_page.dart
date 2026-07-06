@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:his_mobile/core/network/api_client.dart';
 import 'package:his_mobile/data/models/prescription_model.dart';
@@ -205,6 +207,229 @@ class _PrescriptionListPageState extends State<PrescriptionListPage> with Single
     }
   }
 
+  Widget _buildBackgroundGlows(bool isDark) {
+    if (!isDark) {
+      return Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF009688).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            right: -120,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF7B1FA2).withValues(alpha: 0.16),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Stack(
+      children: [
+        Positioned(
+          top: -120,
+          left: -80,
+          child: Container(
+            width: 340,
+            height: 340,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF009688).withValues(alpha: 0.18),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 240,
+          right: -100,
+          child: Container(
+            width: 320,
+            height: 320,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF7B1FA2).withValues(alpha: 0.14),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -150,
+          left: -100,
+          child: Container(
+            width: 400,
+            height: 400,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF0288D1).withValues(alpha: 0.16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrescriptionList(String status) {
+    return RefreshIndicator(
+      onRefresh: () => _fetchPrescriptions(refresh: true),
+      color: const Color(0xFF00796B),
+      child: _prescriptions.isEmpty && !_isLoading
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 120.0),
+                  child: Center(child: Text('当前分类无处方记录', style: TextStyle(color: Colors.grey, fontSize: 14))),
+                ),
+              ],
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 110.0),
+              itemCount: _prescriptions.length + (_isLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _prescriptions.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20.0),
+                    child: Center(child: CircularProgressIndicator(color: Color(0xFF00796B))),
+                  );
+                }
+                final prescription = _prescriptions[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: AnimatedScaleButton(
+                    onTap: () async {
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PrescriptionDetailPage(prescriptionId: prescription.id),
+                        ),
+                      );
+                      if (changed == true) {
+                        _fetchPrescriptions(refresh: true);
+                      }
+                    },
+                    child: GlassCard(
+                      margin: EdgeInsets.zero,
+                      padding: const EdgeInsets.all(20.0),
+                      borderRadius: 24,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(CupertinoIcons.doc_text, color: Colors.grey, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    prescription.prescriptionCode,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(prescription.status).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: _getStatusColor(prescription.status).withValues(alpha: 0.25), width: 0.8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 5,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _getStatusColor(prescription.status),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      prescription.statusText,
+                                      style: TextStyle(
+                                        color: _getStatusColor(prescription.status),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          const Divider(height: 1, color: Colors.black12),
+                          const SizedBox(height: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '患者：${prescription.patientName ?? "未知"}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : const Color(0xFF334155),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '科室/医生：${prescription.doctorName ?? "未知"}',
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    prescription.createdAt.split('T')[0],
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Row(
+                                    children: [
+                                      Text('详情', style: TextStyle(fontSize: 12, color: Color(0xFF00796B), fontWeight: FontWeight.bold)),
+                                      SizedBox(width: 2),
+                                      Icon(CupertinoIcons.chevron_right, size: 14, color: Color(0xFF00796B)),
+                                    ],
+                                  )
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -216,7 +441,7 @@ class _PrescriptionListPageState extends State<PrescriptionListPage> with Single
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF00796B), size: 24),
+            icon: const Icon(CupertinoIcons.barcode_viewfinder, color: Color(0xFF00796B), size: 24),
             onPressed: _handleScanCode,
             tooltip: '扫码配药复核',
           ),
@@ -248,152 +473,35 @@ class _PrescriptionListPageState extends State<PrescriptionListPage> with Single
           ),
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF090C15), const Color(0xFF0B1B2A), const Color(0xFF141221)]
-                : [const Color(0xFFEAF6FF), const Color(0xFFEDFDF8), const Color(0xFFFFF2F7)],
-          ),
-        ),
-        child: RefreshIndicator(
-          onRefresh: () => _fetchPrescriptions(refresh: true),
-          color: const Color(0xFF00796B),
-          child: _prescriptions.isEmpty && !_isLoading
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: 120.0),
-                      child: Center(child: Text('当前分类无处方记录', style: TextStyle(color: Colors.grey, fontSize: 14))),
-                    ),
-                  ],
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 110.0), // 底部留空，防止被悬浮底栏遮挡
-                  itemCount: _prescriptions.length + (_isLoading ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _prescriptions.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20.0),
-                        child: Center(child: CircularProgressIndicator(color: Color(0xFF00796B))),
-                      );
-                    }
-
-                    final prescription = _prescriptions[index];
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: AnimatedScaleButton(
-                        onTap: () async {
-                          final changed = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PrescriptionDetailPage(prescriptionId: prescription.id),
-                            ),
-                          );
-                          if (changed == true) {
-                            _fetchPrescriptions(refresh: true);
-                          }
-                        },
-                        child: GlassCard(
-                          margin: EdgeInsets.zero,
-                          padding: const EdgeInsets.all(20.0),
-                          borderRadius: 24,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 第一行：编号与状态
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.receipt_long_rounded, color: Colors.grey, size: 18),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        prescription.prescriptionCode,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 15,
-                                          color: isDark ? Colors.white : const Color(0xFF1E293B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(prescription.status).withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      prescription.statusText,
-                                      style: TextStyle(
-                                        color: _getStatusColor(prescription.status),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              const Divider(height: 1, color: Colors.black12),
-                              const SizedBox(height: 14),
-                              // 第二行：患者、医生信息与日期
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '患者：${prescription.patientName ?? "未知"}',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w800,
-                                            color: isDark ? Colors.white70 : const Color(0xFF334155),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '科室/医生：${prescription.doctorName ?? "未知"}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        prescription.createdAt.split('T')[0],
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Row(
-                                        children: [
-                                          Text('详情', style: TextStyle(fontSize: 12, color: Color(0xFF00796B), fontWeight: FontWeight.bold)),
-                                          SizedBox(width: 2),
-                                          Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF00796B)),
-                                        ],
-                                      )
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF090C15), const Color(0xFF0B1B2A), const Color(0xFF141221)]
+                      : [const Color(0xFFEAF6FF), const Color(0xFFEDFDF8), const Color(0xFFFFF2F7)],
                 ),
-        ),
+              ),
+            ),
+          ),
+          Positioned.fill(child: _buildBackgroundGlows(isDark)),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          Positioned.fill(
+            child: TabBarView(
+              controller: _tabController,
+              children: _tabs.map((t) => _buildPrescriptionList(t['status'] as String)).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

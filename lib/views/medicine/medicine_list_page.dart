@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
 import 'package:his_mobile/core/network/api_client.dart';
@@ -219,43 +221,54 @@ class _MedicineListPageState extends State<MedicineListPage> {
     }
   }
 
-  // 弹出修改前缀对话框 (网页端同款前缀绑定)
+  // 弹出修改前缀对话框 (Cupertino style)
   void _showPrefixDialog(MedicineModel medicine) {
     final controller = TextEditingController(text: medicine.traceCodePrefix ?? '');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    showDialog(
+    showCupertinoDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return CupertinoAlertDialog(
           title: Text('配置 [${medicine.name}] 7位前缀'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('追溯码前缀必须是 7 位数字（例如：8422747），扫码时将根据此前缀匹配药品。', style: TextStyle(fontSize: 13, color: Colors.grey)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '7位追溯码前缀',
-                  hintText: '输入7位数字前缀',
+          content: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                const Text('追溯码前缀必须是 7 位数字（例如：8422747），扫码时将根据此前缀匹配药品。', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 12),
+                CupertinoTextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  placeholder: '输入7位数字前缀',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
-            TextButton(
+            CupertinoDialogAction(
+              isDestructiveAction: true,
               onPressed: () {
                 Navigator.pop(context);
                 _updatePrefix(medicine.id, '');
               },
-              child: const Text('删除前缀', style: TextStyle(color: Colors.redAccent)),
+              child: const Text('删除前缀'),
             ),
-            TextButton(
+            CupertinoDialogAction(
               onPressed: () => Navigator.pop(context),
               child: const Text('取消'),
             ),
-            ElevatedButton(
+            CupertinoDialogAction(
+              isDefaultAction: true,
               onPressed: () {
                 final prefix = controller.text.trim();
                 if (prefix.isNotEmpty && !RegExp(r'^\d{7}$').hasMatch(prefix)) {
@@ -327,6 +340,79 @@ class _MedicineListPageState extends State<MedicineListPage> {
     }
   }
 
+  Widget _buildBackgroundGlows(bool isDark) {
+    if (!isDark) {
+      return Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF009688).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            right: -120,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF7B1FA2).withValues(alpha: 0.16),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Stack(
+      children: [
+        Positioned(
+          top: -120,
+          left: -80,
+          child: Container(
+            width: 340,
+            height: 340,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF009688).withValues(alpha: 0.18),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 240,
+          right: -100,
+          child: Container(
+            width: 320,
+            height: 320,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF7B1FA2).withValues(alpha: 0.14),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -150,
+          left: -100,
+          child: Container(
+            width: 400,
+            height: 400,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF0288D1).withValues(alpha: 0.16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -338,57 +424,87 @@ class _MedicineListPageState extends State<MedicineListPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF090C15), const Color(0xFF0B1B2A), const Color(0xFF141221)]
-                : [const Color(0xFFEAF6FF), const Color(0xFFEDFDF8), const Color(0xFFFFF2F7)],
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF090C15), const Color(0xFF0B1B2A), const Color(0xFF141221)]
+                      : [const Color(0xFFEAF6FF), const Color(0xFFEDFDF8), const Color(0xFFFFF2F7)],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
+          Positioned.fill(child: _buildBackgroundGlows(isDark)),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          Positioned.fill(
+            child: Column(
+              children: [
             // 苹果极简圆角搜索栏
             Padding(
               padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: '搜索药品名称或制造厂商',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _handleSearch();
-                                },
-                              )
-                            : null,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      onSubmitted: (_) => _handleSearch(),
-                      onChanged: (val) {
-                        setState(() {});
-                      },
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          filled: false,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          hintText: '搜索药品名称或制造厂商',
+                          hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                          prefixIcon: Icon(CupertinoIcons.search, size: 18, color: isDark ? Colors.white60 : Colors.black45),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(CupertinoIcons.clear_circled_solid, size: 16, color: isDark ? Colors.white60 : Colors.black45),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _handleSearch();
+                                  },
+                                )
+                              : null,
+                        ),
+                        onSubmitted: (_) => _handleSearch(),
+                        onChanged: (val) {
+                          setState(() {});
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   AnimatedScaleButton(
                     onTap: _handleSearch,
                     child: Container(
-                      height: 52,
+                      height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00796B),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF009688), Color(0xFF00796B)],
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00796B).withValues(alpha: 0.15),
+                            color: const Color(0xFF009688).withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           )
@@ -397,7 +513,7 @@ class _MedicineListPageState extends State<MedicineListPage> {
                       alignment: Alignment.center,
                       child: const Text(
                         '搜索',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.0),
                       ),
                     ),
                   ),
@@ -539,14 +655,18 @@ class _MedicineListPageState extends State<MedicineListPage> {
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
                                               const Text('前缀维护 (7位):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                                              OutlinedButton.icon(
+                                              CupertinoButton(
                                                 onPressed: () => _showPrefixDialog(medicine),
-                                                icon: const Icon(Icons.settings, size: 14),
-                                                label: const Text('修改前缀'),
-                                                style: OutlinedButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                  minimumSize: Size.zero,
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                color: const Color(0xFF00796B).withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(10),
+                                                minimumSize: Size.zero,
+                                                child: Row(
+                                                  children: const [
+                                                    Icon(CupertinoIcons.settings, size: 13, color: Color(0xFF00796B)),
+                                                    SizedBox(width: 4),
+                                                    Text('修改前缀', style: TextStyle(fontSize: 11, color: Color(0xFF00796B), fontWeight: FontWeight.bold)),
+                                                  ],
                                                 ),
                                               ),
                                             ],
@@ -558,13 +678,28 @@ class _MedicineListPageState extends State<MedicineListPage> {
                                           Row(
                                             children: [
                                               Expanded(
-                                                child: TextField(
-                                                  controller: _newTraceCodeController,
-                                                  keyboardType: TextInputType.number,
-                                                  decoration: const InputDecoration(
-                                                    hintText: '输入20位全新追溯码',
-                                                    isDense: true,
-                                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                  child: TextField(
+                                                    controller: _newTraceCodeController,
+                                                    keyboardType: TextInputType.number,
+                                                    style: const TextStyle(fontSize: 13),
+                                                    decoration: const InputDecoration(
+                                                      hintText: '输入20位全新追溯码',
+                                                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                                      border: InputBorder.none,
+                                                      filled: false,
+                                                      enabledBorder: InputBorder.none,
+                                                      focusedBorder: InputBorder.none,
+                                                      errorBorder: InputBorder.none,
+                                                      focusedErrorBorder: InputBorder.none,
+                                                      isDense: true,
+                                                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -572,14 +707,14 @@ class _MedicineListPageState extends State<MedicineListPage> {
                                               AnimatedScaleButton(
                                                 onTap: () => _handleAddTraceCode(medicine.id),
                                                 child: Container(
-                                                  height: 48,
+                                                  height: 38,
                                                   padding: const EdgeInsets.symmetric(horizontal: 16),
                                                   decoration: BoxDecoration(
                                                     color: const Color(0xFF00796B),
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    borderRadius: BorderRadius.circular(12),
                                                   ),
                                                   alignment: Alignment.center,
-                                                  child: const Text('添加', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                                                  child: const Text('添加', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
                                                 ),
                                               ),
                                             ],
@@ -661,22 +796,22 @@ class _MedicineListPageState extends State<MedicineListPage> {
                                                                 children: [
                                                                   TextButton.icon(
                                                                     onPressed: () => _handleTestScan(tcId, medicine.id),
-                                                                    icon: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.green),
-                                                                    label: const Text('模拟扫描', style: TextStyle(fontSize: 11, color: Colors.green)),
+                                                                    icon: const Icon(CupertinoIcons.play_arrow_solid, size: 12, color: Colors.green),
+                                                                    label: const Text('模拟扫描', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
                                                                     style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
                                                                   ),
                                                                   const SizedBox(width: 8),
                                                                   TextButton.icon(
                                                                     onPressed: () => _handleTestUnscan(tcId, medicine.id),
-                                                                    icon: const Icon(Icons.undo_rounded, size: 14, color: Colors.orange),
-                                                                    label: const Text('撤销', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                                                                    icon: const Icon(CupertinoIcons.reply, size: 12, color: Colors.orange),
+                                                                    label: const Text('撤销', style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold)),
                                                                     style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
                                                                   ),
                                                                   const SizedBox(width: 8),
                                                                   TextButton.icon(
                                                                     onPressed: () => _handleDeleteTraceCode(tcId, medicine.id),
-                                                                    icon: const Icon(Icons.delete_outline_rounded, size: 14, color: Colors.red),
-                                                                    label: const Text('删除', style: TextStyle(fontSize: 11, color: Colors.red)),
+                                                                    icon: const Icon(CupertinoIcons.trash, size: 12, color: Colors.red),
+                                                                    label: const Text('删除', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold)),
                                                                     style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
                                                                   ),
                                                                 ],
@@ -701,6 +836,8 @@ class _MedicineListPageState extends State<MedicineListPage> {
           ],
         ),
       ),
+    ],
+  ),
     );
   }
 }
