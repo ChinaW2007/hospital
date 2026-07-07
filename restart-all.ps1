@@ -70,7 +70,7 @@ Write-Host "`n[2/2] Starting all services..." -ForegroundColor Yellow
 # 1. hospital_back
 Write-Host "  [1/4] Starting hospital_back..." -ForegroundColor Cyan
 try {
-    Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$HospitalBackPath'; python app.py" -WindowStyle Normal -ErrorAction Stop
+    Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$HospitalBackPath'; py app.py" -WindowStyle Normal -ErrorAction Stop
     Write-Host "    hospital_back starting in new terminal (http://localhost:8000)" -ForegroundColor Green
 } catch {
     Write-Host "    [FAIL] Failed to start hospital_back" -ForegroundColor Red
@@ -195,7 +195,7 @@ if ($allRunning) {
     Write-Host "Some services failed to start." -ForegroundColor Red
     Write-Host "Please check the terminal windows for error messages." -ForegroundColor Yellow
     Write-Host "Manual restart commands:" -ForegroundColor White
-    Write-Host "  hospital_back: cd $HospitalBackPath; python app.py" -ForegroundColor Gray
+    Write-Host "  hospital_back: cd $HospitalBackPath; py app.py" -ForegroundColor Gray
     Write-Host "  hospital_front: cd $HospitalFrontPath; npm run dev" -ForegroundColor Gray
     Write-Host "  HIS server: cd $HisServerPath; npm run dev" -ForegroundColor Gray
     Write-Host "  HIS client: cd $HisClientPath; npm run dev" -ForegroundColor Gray
