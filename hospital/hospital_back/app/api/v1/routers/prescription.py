@@ -55,6 +55,35 @@ def _get_his_connection():
     return pymysql.connect(**HIS_DB_CONFIG, connect_timeout=5)
 
 
+def _get_dispensed_prescription_codes():
+    """
+    查询 HIS MySQL 的 medicine_trace_codes 表，
+    返回所有追溯码已第3次扫描完成的处方编码集合
+    用于判断处方是否已发放（基于最后一个节点的实际完成状态）
+    """
+    try:
+        conn = _get_his_connection()
+        with conn.cursor() as cursor:
+            # 找出每个处方的追溯码总数和已第3次扫描的数量
+            # 当 scanned_3 == total_codes 时，说明最后一个节点已完成
+            cursor.execute("""
+                SELECT p.prescription_code,
+                       COUNT(*) as total_codes,
+                       SUM(CASE WHEN tc.scan3_time IS NOT NULL THEN 1 ELSE 0 END) as scanned_3
+                FROM medicine_trace_codes tc
+                JOIN prescriptions p ON tc.prescription_id = p.id
+                GROUP BY p.prescription_code
+                HAVING total_codes > 0 AND scanned_3 = total_codes
+            """)
+            rows = cursor.fetchall()
+            return {row["prescription_code"] for row in rows if row["prescription_code"]}
+    except Exception:
+        return set()
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
 @router.get("/prescriptions/recent")
 def get_recent_prescriptions(limit: int = 20):
     """获取最近的处方列表（含药品明细）"""
@@ -119,16 +148,25 @@ def get_recent_prescriptions(limit: int = 20):
                     items_by_prescription[pid] = []
                 items_by_prescription[pid].append(item)
 
-            # 组装最终结果
+            # 组装最终结果 - 基于node4_status判断是否已发放
+            dispensed_codes = _get_dispensed_prescription_codes()
+
             result = []
             for p in prescriptions:
+                code = p.get("prescription_code", "")
+                # 基于node4_status判断是否已发放
+                if code in dispensed_codes:
+                    effective_status = "dispensed"
+                else:
+                    effective_status = p["status"]
+
                 result.append({
                     "id": p["id"],
-                    "prescription_code": p.get("prescription_code", ""),
+                    "prescription_code": code,
                     "patient_name": p["patient_name"],
                     "doctor_name": p["doctor_name"],
                     "diagnosis": p["diagnosis"],
-                    "status": p["status"],
+                    "status": effective_status,
                     "total_amount": float(p["total_amount"]) if p["total_amount"] else 0,
                     "created_at": str(p["created_at"]),
                     "reviewed_at": str(p["reviewed_at"]) if p["reviewed_at"] else None,
@@ -152,32 +190,61 @@ def get_recent_prescriptions(limit: int = 20):
 
 @router.get("/prescriptions/stats")
 def get_prescription_stats():
-    """获取处方统计概览"""
+    """获取处方统计概览 - 基于最后一个节点(node4)是否完成来判断已发放"""
     if not _check_mysql():
         return {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "dispensed": 0, "total_amount": 0, "today_count": 0}
     try:
         conn = _get_his_connection()
         with conn.cursor() as cursor:
+            # 查询所有处方的状态和编码
             cursor.execute("""
-                SELECT
-                    COUNT(*) AS total,
-                    SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
-                    SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) AS approved,
-                    SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected,
-                    SUM(CASE WHEN status='dispensed' THEN 1 ELSE 0 END) AS dispensed,
-                    COALESCE(SUM(total_amount), 0) AS total_amount,
-                    SUM(CASE WHEN DATE(created_at)=CURDATE() THEN 1 ELSE 0 END) AS today_count
+                SELECT id, prescription_code, status, total_amount, created_at
                 FROM prescriptions
             """)
-            row = cursor.fetchone()
+            all_prescriptions = cursor.fetchall()
+
+            # 获取 node4 已完成的处方编码集合
+            dispensed_codes = _get_dispensed_prescription_codes()
+
+            # 基于最后一个节点是否完成来统计
+            total = len(all_prescriptions)
+            dispensed_count = 0
+            pending_count = 0
+            approved_count = 0
+            rejected_count = 0
+            total_amount = 0
+            today_count = 0
+
+            for p in all_prescriptions:
+                code = p.get("prescription_code", "")
+                status = p["status"]
+                amount = float(p["total_amount"]) if p["total_amount"] else 0
+                total_amount += amount
+
+                # 如果当前日期
+                if p["created_at"]:
+                    today_count += 1
+
+                # 基于node4_status判断是否已发放
+                if code in dispensed_codes:
+                    dispensed_count += 1
+                elif status == "pending":
+                    pending_count += 1
+                elif status == "approved":
+                    approved_count += 1
+                elif status == "rejected":
+                    rejected_count += 1
+                elif status == "dispensed":
+                    dispensed_count += 1
+
             return {
-                "total": row["total"] or 0,
-                "pending": row["pending"] or 0,
-                "approved": row["approved"] or 0,
-                "rejected": row["rejected"] or 0,
-                "dispensed": row["dispensed"] or 0,
-                "total_amount": float(row["total_amount"]) if row["total_amount"] else 0,
-                "today_count": row["today_count"] or 0,
+                "total": total,
+                "pending": pending_count,
+                "approved": approved_count,
+                "rejected": rejected_count,
+                "dispensed": dispensed_count,
+                "total_amount": total_amount,
+                "today_count": today_count,
             }
     except pymysql.Error as e:
         raise HTTPException(status_code=500, detail=f"数据库连接失败: {str(e)}")
@@ -425,7 +492,7 @@ def get_prescriptions_progress(limit: int = 20):
 
 @router.get("/prescriptions/items/latest")
 def get_latest_prescription_items(limit: int = 30):
-    """获取最新的处方药品明细（用于实时下药监控）"""
+    """获取最新的处方药品明细（用于实时下药监控）- 基于node4判断已发放"""
     if not _check_mysql():
         return {"total": 0, "list": []}
     try:
@@ -461,12 +528,22 @@ def get_latest_prescription_items(limit: int = 30):
             """, (limit,))
             rows = cursor.fetchall()
 
+            # 获取 node4 已完成的处方编码集合
+            dispensed_codes = _get_dispensed_prescription_codes()
+
             result = []
             for row in rows:
+                code = row.get("prescription_code", "")
+                # 基于node4_status判断是否已发放
+                if code in dispensed_codes:
+                    effective_status = "dispensed"
+                else:
+                    effective_status = row["prescription_status"]
+
                 result.append({
                     "id": row["id"],
                     "prescription_id": row["prescription_id"],
-                    "prescription_code": row.get("prescription_code", ""),
+                    "prescription_code": code,
                     "medicine_id": row["medicine_id"],
                     "medicine_name": row["medicine_name"],
                     "specification": row["specification"],
@@ -478,7 +555,7 @@ def get_latest_prescription_items(limit: int = 30):
                     "frequency": row["frequency"],
                     "days": row["days"],
                     "quantity": row["quantity"],
-                    "prescription_status": row["prescription_status"],
+                    "prescription_status": effective_status,
                     "patient_name": row["patient_name"],
                     "doctor_name": row["doctor_name"],
                     "created_at": str(row["prescription_created_at"]),

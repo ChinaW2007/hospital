@@ -224,11 +224,7 @@ router.get('/', async (req: Request, res: Response) => {
     const conditions: string[] = [];
     const params: any[] = [];
 
-    // Doctor sees their own prescriptions; pharmacist/admin sees all
-    if (user.role === 'doctor') {
-      conditions.push('p.doctor_id = ?');
-      params.push(user.id);
-    }
+    // 所有角色（医生、药师、管理员）都能看到所有处方，实现数据互通
 
     if (status) {
       conditions.push('p.status = ?');

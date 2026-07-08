@@ -94,6 +94,7 @@ const getStepClass = (step) => {
                 <div class="step-num">{{ step.id }}</div>
                 <div class="step-content">
                   <span class="step-title">{{ step.name }}</span>
+                  <span v-if="step.desc" class="step-desc">{{ step.desc }}</span>
                 </div>
               </div>
             </div>
@@ -371,6 +372,14 @@ const getStepClass = (step) => {
   font-size: 11px;
   font-weight: 600;
   color: #475569;
+}
+
+.step-desc {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.2;
 }
 
 .step-item.active .step-title {

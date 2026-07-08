@@ -211,7 +211,7 @@ def update_prescription_workflow_db(prescription_code: str, status: str, medicin
         engine = create_engine(settings.database_url)
 
         with engine.connect() as conn:
-            node_updates = get_node_updates_from_status(status)
+            node_updates = get_node_updates_from_status(status, medicine_id)
 
             upsert_sql = text("""
                 INSERT OR REPLACE INTO prescription_workflow_state
@@ -267,7 +267,7 @@ def update_his_prescription_status(prescription_code: str) -> bool:
             his_cursor.execute("""
                 UPDATE prescriptions
                 SET status = 'dispensed'
-                WHERE prescription_code = %s AND status = 'pending'
+                WHERE prescription_code = %s AND status IN ('pending', 'approved')
             """, (prescription_code,))
             his_conn.commit()
 
@@ -292,14 +292,26 @@ def update_his_prescription_status(prescription_code: str) -> bool:
         return False
 
 
-def get_node_updates_from_status(status: str) -> Dict[str, Any]:
+def get_node_updates_from_status(status: str, medicine_id: Optional[int] = None) -> Dict[str, Any]:
     """
     根据 ROS 状态获取节点更新数据
 
     支持新旧两种格式：
     - 新格式（横线）: running-started, running-step1-navigate-to-pharmacy, all_completed 等
     - 旧格式（下划线）: running_started, running_step1_navigate_to_pharmacy 等
+
+    多药品支持：节点2描述中显示当前药品序号（第X个/共Y个）
     """
+    # 从 HIS Sender 获取当前药品序号信息
+    medicine_info = ""
+    try:
+        from app.services.his_sender import _current_medicine_index, _medicine_total
+        if _medicine_total > 0:
+            current_idx = _current_medicine_index + 1  # 从1开始显示
+            medicine_info = f"（第{current_idx}/{_medicine_total}个药）"
+    except Exception:
+        pass
+
     defaults = {
         "current_node": 1,
         "node2_status": "pending",
@@ -314,11 +326,11 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
     if status == "running-started":
         defaults["current_node"] = 2
         defaults["node2_status"] = "completed"
-        defaults["node2_desc"] = "任务确认完成"
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}"
     elif status == "running_started":
         defaults["current_node"] = 2
         defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "任务已确认"
+        defaults["node2_desc"] = f"任务已确认{medicine_info}"
 
     # ===== 所有药品完成抓取 =====
     elif status == "all_completed":
@@ -331,30 +343,32 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
         defaults["node4_desc"] = "等待站台交互"
 
     # ===== Step 1: 前往药房 =====
+    # 注意：节点2（任务确认）在running-started时已完成，不应回退为active
     elif status == "running-step1-navigate-to-pharmacy":
         defaults["current_node"] = 2
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "正在前往药房"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}"
     elif status == "error-step1-cannot-reach-pharmacy":
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "到达药房失败"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}（到达药房失败）"
     elif status == "running_step1_navigate_to_pharmacy":
         defaults["current_node"] = 2
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "正在前往药房"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}"
     elif status == "error_step1_cannot_reach_pharmacy":
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "到达药房失败"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}（到达药房失败）"
 
     # ===== Step 2: 抓药 =====
+    # 注意：节点2（任务确认）在running-started时已完成，不应回退为active
     elif status == "running-step2-pick":
         defaults["current_node"] = 2
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "正在抓药"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}"
     elif status == "running_step2_pick":
         defaults["current_node"] = 2
-        defaults["node2_status"] = "active"
-        defaults["node2_desc"] = "正在抓药"
+        defaults["node2_status"] = "completed"  # ✅ 保持completed状态
+        defaults["node2_desc"] = f"任务确认完成{medicine_info}"
 
     # ===== Step 3: 前往病房 =====
     elif status == "running-step3-navigate-doctor":
@@ -566,9 +580,9 @@ async def handle_audio_broadcast(status: str, prescription_code: str, medicine_i
                     logger.error(f"语音播报失败: {audio_err}")
                     print(f"[ROS Listener] 语音播报失败: {audio_err}")
 
-                # 更新HIS处方状态为dispensed
-                print(f"[ROS Listener] 药单完成，更新HIS处方状态为dispensed")
-                update_his_prescription_status(prescription_code)
+                # 注意：此处不更新HIS处方状态为dispensed
+                # all_completed 只表示所有药品抓取完成（节点2完成）
+                # 应该等 end 消息（所有4个节点完成）时才更新为dispensed
             else:
                 print(f"[ROS Listener] car_already_arrive 已触发过，不重复播放")
 
@@ -692,6 +706,10 @@ async def handle_ros_message(data: str) -> None:
                 notify_task_completed(prescription_code)
             except Exception as sender_err:
                 logger.error(f"通知 HIS Sender 失败: {sender_err}")
+
+            # 所有4个节点完成，更新HIS处方状态为dispensed
+            print(f"[ROS Listener] 所有节点完成，更新HIS处方状态为dispensed")
+            update_his_prescription_status(prescription_code)
         else:
             print(f"[ROS Listener] end消息格式异常，缺少关键字段")
 

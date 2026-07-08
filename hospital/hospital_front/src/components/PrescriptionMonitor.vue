@@ -101,7 +101,7 @@ const formatTime = (timeStr) => {
     </div>
 
     <!-- KPI 关键数据大看板 -->
-    <!-- HIS系统状态映射: pending(待审核)→待处理处方, approved(已通过)→已发放处方 -->
+    <!-- HIS系统状态映射: pending(待审核)→待处理处方, dispensed(已发放)→已发放处方 -->
     <div class="kpi-container">
       <div class="kpi-card warning">
         <div class="kpi-info">
@@ -113,7 +113,7 @@ const formatTime = (timeStr) => {
       <div class="kpi-card success">
         <div class="kpi-info">
           <span class="kpi-label">已发放处方</span>
-          <span class="kpi-val">{{ stats.approved || 0 }}</span>
+          <span class="kpi-val">{{ stats.dispensed || 0 }}</span>
         </div>
         <div class="kpi-icon">✓</div>
       </div>

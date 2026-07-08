@@ -18,8 +18,10 @@ const _K = String.fromCharCode(
   0x73, 0x6a, 0x6a, 0x79, 0x79, 0x64, 0x73, 0x36, 0x36, 0x36
 );
 
-const ROOT = path.resolve(__dirname, '../..');
-const INTEGRITY_PATH = path.join(__dirname, '..', '.integrity');
+// 使用 process.cwd() 确保从任何启动方式都能正确找到文件
+// 直接运行 npm run dev 时 cwd=server/，通过脚本启动时也设置 cwd=server/
+const ROOT = process.cwd();
+const INTEGRITY_PATH = path.join(ROOT, '.integrity');
 
 function deriveKey(salt: Buffer): Buffer {
   return crypto.pbkdf2Sync(_K, salt, 200000, 32, 'sha256');
