@@ -1,0 +1,142 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { prescriptionApi } from '../services/api';
+import type { Prescription } from '../types';
+import { STATUS_LABELS, STATUS_COLORS } from '../types';
+
+const STATUS_FILTERS = [
+  { value: '', label: '全部' },
+  { value: 'pending', label: '待审核' },
+  { value: 'approved', label: '已通过' },
+  { value: 'rejected', label: '已驳回' },
+  { value: 'dispensed', label: '已发药' },
+];
+
+const rowAnim = {
+  hidden: { opacity: 0, y: 10 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04 } }),
+};
+
+export default function PrescriptionListPage() {
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState<Prescription | null>(null);
+  const pageSize = 10;
+
+  const load = async (p: number, status: string) => {
+    setLoading(true);
+    try {
+      const params: any = { page: p, pageSize };
+      if (status) params.status = status;
+      const data = await prescriptionApi.list(params);
+      setPrescriptions(data.list);
+      setTotal(data.total);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(page, statusFilter); }, [page, statusFilter]);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await prescriptionApi.delete(confirmDelete.id);
+      setConfirmDelete(null);
+      load(page, statusFilter);
+    } catch (err: any) { alert(err.response?.data?.error || '删除失败'); }
+  };
+
+  return (
+    <div>
+      <motion.div className="page-header flex-between" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
+          <h1>处方记录</h1>
+          <p>查看所有处方信息</p>
+        </div>
+      </motion.div>
+
+      <motion.div className="flex-between" style={{ marginBottom: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {STATUS_FILTERS.map((f) => (
+            <motion.button
+              key={f.value}
+              className={`glass-btn ${statusFilter === f.value ? 'glass-btn--primary' : 'glass-btn--outline'} glass-btn--sm`}
+              onClick={() => { setPage(1); setStatusFilter(f.value); }}
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            >
+              {f.label}
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      <motion.div className="glass-card" style={{ padding: 20 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        {loading ? (
+          <div className="loading">加载中...</div>
+        ) : prescriptions.length === 0 ? (
+          <div className="empty-state"><div className="empty-icon">📋</div><p>暂无处方记录</p></div>
+        ) : (
+          <>
+            <table className="glass-table" style={{ width: '100%' }}>
+              <thead>
+                <tr><th>处方编号</th><th>病人</th><th>诊断</th><th>医生</th><th>状态</th><th style={{ textAlign: 'right' }}>时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <AnimatePresence>
+                  {prescriptions.map((p, i) => (
+                    <motion.tr key={p.id} variants={rowAnim} custom={i} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
+                      <td><strong>{p.prescription_code || `#${p.id}`}</strong></td>
+                      <td>{p.patient_name}</td>
+                      <td>{p.diagnosis}</td>
+                      <td>{p.doctor_name}</td>
+                      <td>
+                        <span className="glass-badge" style={{ background: STATUS_COLORS[p.status] + '22', color: STATUS_COLORS[p.status] }}>
+                          {STATUS_LABELS[p.status]}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'right' }}>{p.created_at}</td>
+                      <td>
+                        <div className="action-btns">
+                          <Link to={`/prescriptions/${p.id}`} className="glass-btn glass-btn--outline glass-btn--sm">查看</Link>
+                          <motion.button className="glass-btn glass-btn--danger glass-btn--sm" onClick={() => setConfirmDelete(p)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>删除</motion.button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</button>
+                <span className="page-info">第 {page} / {totalPages} 页（共 {total} 条）</span>
+                <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>下一页</button>
+              </div>
+            )}
+          </>
+        )}
+      </motion.div>
+
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div className="confirm-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="confirm-dialog glass-card" initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
+              <h3>确认删除</h3>
+              <p>确定要删除处方 {confirmDelete.prescription_code || `#${confirmDelete.id}`} 及其所有药品明细吗？此操作不可撤销。</p>
+              <div className="confirm-actions">
+                <motion.button className="glass-btn glass-btn--danger" onClick={handleDelete} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>确认删除</motion.button>
+                <button className="glass-btn glass-btn--outline" onClick={() => setConfirmDelete(null)}>取消</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
