@@ -184,9 +184,9 @@ def update_prescription_workflow_db(prescription_code: str, status: str) -> bool
             print(f"[成功] 更新处方流程状态: {prescription_code} -> {status}")
             logger.info(f"已更新处方流程状态: {prescription_code} -> {status}")
             
-            # ===== 新增：当任务完成时（Step 5 返回），同步更新 HIS MySQL prescriptions 表 =====
-            # 如果 ROS 状态为 'running-step5-return'，说明机器人正在返回起点，任务已完成
-            if status == "running-step5-return":
+            # ===== 新增：当任务完成时（四个节点全部 completed），同步更新 HIS MySQL prescriptions 表 =====
+            # 如果 ROS 状态为 'end'，说明四个节点全部已完成，处方已发放
+            if status == "end":
                 try:
                     his_conn = pymysql.connect(
                         host=settings.his_mysql_host,
@@ -346,25 +346,37 @@ def get_node_updates_from_status(status: str) -> Dict[str, Any]:
         defaults["node4_desc"] = "正在送药"
     
     # ===== Step 5: 返回 =====
-    # 新格式
+    # 新格式（节点3处于进行中状态，节点4等待）
     elif status == "running-step5-return":
-        defaults["current_node"] = 4
-        defaults["node4_status"] = "active"
-        defaults["node4_desc"] = "正在返回起点"
-    
+        defaults["current_node"] = 3
+        defaults["node2_status"] = "completed"
+        defaults["node2_desc"] = "任务确认完成"
+        defaults["node3_status"] = "active"  # 节点3处于进行中状态
+        defaults["node3_desc"] = "机器人返回中"
+        defaults["node4_status"] = "pending"
+        defaults["node4_desc"] = "等待站台交互"
+
     elif status == "error-step5-cannot-return-to-home":
-        defaults["node4_status"] = "active"
-        defaults["node4_desc"] = "无法返回起点"
-    
-    # 旧格式
+        defaults["node3_status"] = "active"
+        defaults["node3_desc"] = "无法返回起点"
+        defaults["node4_status"] = "pending"
+        defaults["node4_desc"] = "等待站台交互"
+
+    # 旧格式（节点3处于进行中状态，节点4等待）
     elif status == "running_step5_return":
-        defaults["current_node"] = 4
-        defaults["node4_status"] = "active"
-        defaults["node4_desc"] = "正在返回起点"
-    
+        defaults["current_node"] = 3
+        defaults["node2_status"] = "completed"
+        defaults["node2_desc"] = "任务确认完成"
+        defaults["node3_status"] = "active"  # 节点3处于进行中状态
+        defaults["node3_desc"] = "机器人返回中"
+        defaults["node4_status"] = "pending"
+        defaults["node4_desc"] = "等待站台交互"
+
     elif status == "error_step5_cannot_return_to_home":
-        defaults["node4_status"] = "active"
-        defaults["node4_desc"] = "无法返回起点"
+        defaults["node3_status"] = "active"
+        defaults["node3_desc"] = "无法返回起点"
+        defaults["node4_status"] = "pending"
+        defaults["node4_desc"] = "等待站台交互"
     
     # ===== 任务完成 =====
     elif status == "end":
@@ -583,6 +595,17 @@ async def ros_websocket_listener() -> None:
                                     try:
                                         from app.services.audio_service import trigger_audio_on_task_confirm
                                         await trigger_audio_on_task_confirm()
+                                    except Exception as audio_err:
+                                        logger.error(f"语音播报失败: {audio_err}")
+
+                                # ===== 机器人返回：触发 car_already_arrive（播报两遍） =====
+                                elif status == "running-step5-return" or status == "running_step5_return":
+                                    logger.info("🎵 机器人返回 - 触发语音播报（car_already_arrive，播报两遍）")
+                                    try:
+                                        from app.services.audio_service import play_audio_async
+                                        await play_audio_async(14)  # audio_id=14 (car_already_arrive)
+                                        await asyncio.sleep(2)  # 间隔2秒
+                                        await play_audio_async(14)  # 播报第二遍
                                     except Exception as audio_err:
                                         logger.error(f"语音播报失败: {audio_err}")
                             
