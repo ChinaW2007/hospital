@@ -702,6 +702,9 @@ async def his_sender_loop():
                 if _current_medicine_index >= _medicine_total - 1:
                     print(f"[HIS Sender] 所有药品发送完成")
                     _all_medicines_completed = True
+                    # 关键修复：更新 _current_medicine_index 防止重复处理最后一个药品
+                    _current_medicine_index = _medicine_total
+                    print(f"[HIS Sender] _current_medicine_index 已更新为 {_medicine_total}（防止重复发送）")
                     # 等待一段时间，让HIS系统更新处方状态
                     await asyncio.sleep(POLL_INTERVAL)
             else:
@@ -817,22 +820,26 @@ def notify_medicine_started(medicine_id: int, prescription_code: str):
     print("=" * 60)
 
 
-def notify_prescription_step5_return(prescription_code: str):
+def notify_prescription_step5_return(prescription_code: str, medicine_id: int = None):
     """
-    通知 HIS Sender 药单完成（Step5返回）（供 ROS Listener 调用）
+    通知 HIS Sender 药品完成（Step5返回）（供 ROS Listener 调用）
 
-    当收到 {prescription_code}_running-step5-return 时调用（药单级消息）
+    支持药品级消息：{medicine_id}_{prescription_code}_running-step5-return
+    药单级消息（medicine_id=None）不触发 end 发送，避免药1、药2相互影响
 
-    顺序结构逻辑：
-    - 检查处方编码是否匹配
-    - 匹配则设置 _step5_return_event，让 process_single_medicine 从 running 阶段进入 end 阶段
+    顺序结构逻辑（药品级严格校验）：
+    - 检查处方编码是否匹配 _current_prescription_code
+    - 检查药品ID是否匹配 _expected_medicine_id（当前正在处理的药品）
+    - 两者都匹配才设置 _step5_return_event，允许进入 end 阶段
     """
     print("=" * 60)
-    print(f"[HIS Sender] 收到药单完成通知（Step5返回）:")
-    print(f"[HIS Sender]   收到的消息: {prescription_code}_running-step5-return")
+    print(f"[HIS Sender] 收到药品完成通知（Step5返回）:")
+    print(f"[HIS Sender]   收到的 prescription_code: {prescription_code}")
+    print(f"[HIS Sender]   收到的 medicine_id: {medicine_id}")
     print(f"[HIS Sender]   当前处方编码: {_current_prescription_code}")
+    print(f"[HIS Sender]   预期药品ID: {_expected_medicine_id}")
 
-    # 严格判断：处方编码是否匹配
+    # 严格判断1：处方编码是否匹配
     if prescription_code != _current_prescription_code:
         print(f"[HIS Sender] [ERROR] 处方编码不匹配！不设置 step5-return 事件")
         print(f"[HIS Sender]   收到: {prescription_code}")
@@ -840,7 +847,23 @@ def notify_prescription_step5_return(prescription_code: str):
         print("=" * 60)
         return
 
-    print(f"[HIS Sender] [OK] 处方编码匹配！设置 step5-return 事件")
+    # 严格判断2：药品ID必须存在（药单级消息不触发end发送）
+    if medicine_id is None:
+        print(f"[HIS Sender] [ERROR] 药单级消息缺少 medicine_id！不设置 step5-return 事件")
+        print(f"[HIS Sender]   需要药品级消息：{{medicine_id}}_{{prescription_code}}_running-step5-return")
+        print("=" * 60)
+        return
+
+    # 严格判断3：药品ID必须匹配当前正在处理的药品
+    if medicine_id != _expected_medicine_id:
+        print(f"[HIS Sender] [ERROR] 药品ID不匹配！不设置 step5-return 事件")
+        print(f"[HIS Sender]   收到: medicine_id={medicine_id}")
+        print(f"[HIS Sender]   预期: medicine_id={_expected_medicine_id}")
+        print(f"[HIS Sender]   这可能是其他药品的 step5-return，忽略以防止药1、药2相互影响")
+        print("=" * 60)
+        return
+
+    print(f"[HIS Sender] [OK] 处方编码和药品ID都匹配！设置 step5-return 事件")
     print(f"[HIS Sender]   process_single_medicine 将从 running 阶段进入 end 阶段")
     if _step5_return_event:
         _step5_return_event.set()
@@ -874,20 +897,32 @@ def notify_all_medicines_completed(prescription_code: str):
     通知 HIS Sender 所有药品已完成抓取（供 ROS Listener 调用）
 
     当收到 {prescription_code}_all_completed 时调用
+    严格校验 prescription_code，匹配后设置 _task_completed = True 停止发送
     """
-    global _all_medicines_completed
+    global _all_medicines_completed, _task_completed
 
-    print(f"[HIS Sender] 收到所有药品完成信号: {prescription_code}")
+    print("=" * 60)
+    print(f"[HIS Sender] 收到所有药品完成信号（all_completed）:")
+    print(f"[HIS Sender]   收到的 prescription_code: {prescription_code}")
     print(f"[HIS Sender]   当前处方编码: {_current_prescription_code}")
 
-    # 检查处方编码是否匹配
-    if prescription_code == _current_prescription_code:
-        print(f"[HIS Sender] [OK] 处方编码匹配")
-        _all_medicines_completed = True
-        if _all_completed_event:
-            _all_completed_event.set()
-    else:
-        print(f"[HIS Sender] [ERROR] all_completed 处方编码不匹配: {prescription_code} != {_current_prescription_code}")
+    # 严格校验：处方编码必须完全匹配
+    if prescription_code != _current_prescription_code:
+        print(f"[HIS Sender] [ERROR] all_completed 处方编码不匹配！不停止发送")
+        print(f"[HIS Sender]   收到: {prescription_code}")
+        print(f"[HIS Sender]   当前: {_current_prescription_code}")
+        print("=" * 60)
+        return
+
+    print(f"[HIS Sender] [OK] 处方编码匹配！设置 all_completed 和 task_completed")
+    print(f"[HIS Sender]   该药单的所有药品已完成，停止发送任何该药单的信息")
+    _all_medicines_completed = True
+    _task_completed = True
+    if _all_completed_event:
+        _all_completed_event.set()
+    if _task_end_event:
+        _task_end_event.set()
+    print("=" * 60)
 
 
 def notify_task_completed(prescription_code: str):

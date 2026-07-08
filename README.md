@@ -383,7 +383,64 @@ ros_connect_timeout = 5            # 连接超时（秒）
 
 ---
 
-## 📄 许可证
+## � 版本历史
+
+### v3.0 (2026-07-08) - 顺序结构重构版
+
+**重大架构重构**：彻底解决多药品处方发送的竞态条件问题
+
+#### 核心改变
+
+| 模块 | 改变内容 | 解决的问题 |
+|------|---------|-----------|
+| **HIS Sender** | 从"选择结构"改为"顺序结构" | 消除两个并发任务通过全局变量通信的竞态条件 |
+| **Event机制** | 用`asyncio.Event`替代7+个全局标志变量 | 防止标志变量在await点被错误修改 |
+| **for循环** | 顺序遍历药品列表，每个药品严格按流程执行 | 防止药品start/end交错发送 |
+
+#### 详细修复清单
+
+| # | 修复项 | 文件 | 影响 |
+|---|--------|------|------|
+| 1 | **顺序结构重构** | `his_sender.py` | 用for循环+Event替代if/elif+全局变量 |
+| 2 | **方案A修复事件时序** | `his_sender.py:549-557` | 删除`_step5_return_event.clear()`，防止卡死在running |
+| 3 | **去0机制** | `ros_listener.py:578-580` | 拦截`medicine_id=0`消息，防止干扰状态机 |
+| 4 | **消息处理异常保护** | `ros_listener.py:767-773` | 单条消息处理失败不中断WebSocket连接 |
+| 5 | **区分药单级/药品级消息** | `ros_listener.py:125-183` | 通过medicine_id长度(≤5位)区分，防止all_completed被误解析 |
+| 6 | **step5-return药品级校验** | `his_sender.py:840-861` | 三重校验(prescription_code + medicine_id非空 + medicine_id匹配) |
+| 7 | **all_completed停止发送** | `his_sender.py:892-922` | 收到`{prescription_code}_all_completed`后设置`_task_completed=True` |
+| 8 | **for循环后更新索引** | `his_sender.py:701-709` | `_current_medicine_index = _medicine_total`防止重复处理最后一个药品 |
+| 9 | **car_already_arrive触发修正** | `ros_listener.py:550-573` | 从`end`改为`all_completed`触发语音播报 |
+| 10 | **stop-all.ps1修复** | `stop-all.ps1` | 修复`$pid`自动变量冲突、补全端口5173、递归杀子进程 |
+
+#### 修复前后对比
+
+| 场景 | 修复前 | 修复后 |
+|------|--------|--------|
+| **end发送次数** | 22-42次（竞态） | 2次（固定） |
+| **药品2的start** | 与药品1的end交错 | 严格顺序：药1end → 等待3秒 → 药2start |
+| **药品2的running** | 发送药1的running数据 | 发送药2的正确数据 |
+| **medicine_id=0** | 干扰状态机，触发错误事件 | 直接忽略，不影响流程 |
+| **消息处理异常** | WebSocket断开重连，丢失后续消息 | 记录错误，继续监听 |
+| **all_completed** | 被误解析为药品级（medicine_id=处方编码） | 正确解析为药单级 |
+
+#### 消息协议
+
+| 消息类型 | 格式 | 示例 | 说明 |
+|---------|------|------|------|
+| **药品级** | `{medicine_id}_{prescription_code}_{status}` | `1_012026070800127_running-step5-return` | medicine_id ≤5位 |
+| **药单级** | `{prescription_code}_{status}` | `012026070800127_all_completed` | prescription_code >5位 |
+
+---
+
+### v2.0 (2026-07-01) - 初始架构版
+
+- 完整架构说明、数据流向、功能清单
+- HIS系统、Hospital Back/Front集成
+- ROS WebSocket监听和处方发送
+
+---
+
+## �📄 许可证
 
 MIT License
 
@@ -395,6 +452,6 @@ MIT License
 
 ---
 
-**文档版本**: 2.0  
-**更新日期**: 2026-07-01  
-**更新内容**: 添加完整架构说明、数据流向、功能清单和API测试结果
+**文档版本**: 3.0  
+**更新日期**: 2026-07-08  
+**更新内容**: 添加v3.0版本历史（顺序结构重构版），详细列出修复的10个核心问题
