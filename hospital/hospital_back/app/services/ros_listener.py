@@ -123,19 +123,56 @@ def parse_ros_message(data: str) -> Dict[str, Any]:
         }
 
     # 解析药品坐标发送格式 {medicine_id}_{prescription_code}_{status}
+    # 和药单级格式 {prescription_code}_{status}
     parts = data.split("_")
+
+    # 已知药单级状态列表（这些状态出现在药单级消息中，不含 medicine_id）
+    PRESCRIPTION_LEVEL_STATUSES = {
+        "all_completed", "all-completed",
+        "end",
+        "running-started", "running_started",
+        "running-step5-return", "running_step5_return"
+    }
+
+    # 判断是否为药品级消息：{medicine_id}_{prescription_code}_{status}
+    # 关键区分：medicine_id 是短数字（通常1-5位），prescription_code 是长数字（通常15位）
     if len(parts) >= 3:
         try:
-            medicine_id = int(parts[0])
-            prescription_code = parts[1]
-            status = "_".join(parts[2:])
+            medicine_id_candidate = int(parts[0])
+            # 判断 parts[0] 是否是合理的 medicine_id（短数字，≤5位）
+            # prescription_code 通常15位数字，不会 ≤5 位
+            is_medicine_id = len(parts[0]) <= 5
+
+            if is_medicine_id:
+                # 药品级消息：{medicine_id}_{prescription_code}_{status}
+                medicine_id = medicine_id_candidate
+                prescription_code = parts[1]
+                status = "_".join(parts[2:])
+                return {
+                    "status": status,
+                    "prescription_code": prescription_code,
+                    "medicine_id": medicine_id
+                }
+            else:
+                # 药单级消息：{prescription_code}_{status...}
+                # parts[0] 是 prescription_code，parts[1:] 组成 status
+                # 例如：012026070800127_all_completed → prescription_code=012026070800127, status=all_completed
+                prescription_code = parts[0]
+                status = "_".join(parts[1:])
+                return {
+                    "status": status,
+                    "prescription_code": prescription_code,
+                    "medicine_id": None
+                }
+        except ValueError:
+            # parts[0] 不是数字，按药单级处理
+            prescription_code = parts[0]
+            status = "_".join(parts[1:])
             return {
                 "status": status,
                 "prescription_code": prescription_code,
-                "medicine_id": medicine_id
+                "medicine_id": None
             }
-        except ValueError:
-            pass
 
     # 解析旧格式 {prescription_code}_{status}
     if len(parts) == 2:
@@ -475,7 +512,7 @@ async def handle_audio_broadcast(status: str, prescription_code: str, medicine_i
 
     规则：
     - car_can_go (audio_id=15): 第一个药品收到 running-started 时触发一次
-    - car_already_arrive (audio_id=14): 最后一个药品收到 end 时触发两次（间隔2秒）
+    - car_already_arrive (audio_id=14): 收到药单级 {prescription_code}_all_completed 时触发两次（间隔2秒）
     """
     from app.services.audio_service import play_audio_async
 
@@ -510,49 +547,30 @@ async def handle_audio_broadcast(status: str, prescription_code: str, medicine_i
             except Exception as audio_err:
                 logger.error(f"语音播报失败: {audio_err}")
 
-    # ===== 药品完成：car_already_arrive 语音播报 + HIS状态更新 =====
-    elif status == "end":
-        if medicine_id is not None and prescription_code:
-            # 判断是否是最后一个药品
-            try:
-                from app.services.his_sender import get_sender_status
-                sender_status = get_sender_status()
-                current_medicine_index = sender_status.get("current_medicine_index", 0)  # 从1开始
-                medicine_total = sender_status.get("medicine_total", 0)
-                is_last_medicine = (current_medicine_index == medicine_total)
+    # ===== 药单完成：car_already_arrive 语音播报 + HIS状态更新 =====
+    # 触发条件：收到药单级 {prescription_code}_all_completed 消息
+    elif status == "all_completed":
+        if prescription_code:
+            if not _audio_state["car_already_arrive_triggered"]:
+                print(f"[ROS Listener] 触发语音播报：药单完成（收到 all_completed）")
+                try:
+                    print(f"[ROS Listener] 播放 audio_id=14 (car_already_arrive) - 第1次")
+                    await play_audio_async(14)
+                    print(f"[ROS Listener] 等待2秒...")
+                    await asyncio.sleep(2)
+                    print(f"[ROS Listener] 播放 audio_id=14 (car_already_arrive) - 第2次")
+                    await play_audio_async(14)
+                    _audio_state["car_already_arrive_triggered"] = True
+                    print(f"[ROS Listener] 语音播报成功：car_already_arrive")
+                except Exception as audio_err:
+                    logger.error(f"语音播报失败: {audio_err}")
+                    print(f"[ROS Listener] 语音播报失败: {audio_err}")
 
-                print(f"[ROS Listener] 药品状态:")
-                print(f"[ROS Listener]   当前药品序号: {current_medicine_index}")
-                print(f"[ROS Listener]   药品总数: {medicine_total}")
-                print(f"[ROS Listener]   是否是最后一个药品: {is_last_medicine}")
-
-                # 仅在最后一个药品收到end时触发语音播报和HIS状态更新
-                if is_last_medicine and not _audio_state["car_already_arrive_triggered"]:
-                    print(f"[ROS Listener] 触发语音播报：单子完成（最后一个药品收到 end）")
-                    try:
-                        print(f"[ROS Listener] 播放 audio_id=14 (car_already_arrive) - 第1次")
-                        await play_audio_async(14)
-                        print(f"[ROS Listener] 等待2秒...")
-                        await asyncio.sleep(2)
-                        print(f"[ROS Listener] 播放 audio_id=14 (car_already_arrive) - 第2次")
-                        await play_audio_async(14)
-                        _audio_state["car_already_arrive_triggered"] = True
-                        print(f"[ROS Listener] 语音播报成功：car_already_arrive")
-                    except Exception as audio_err:
-                        logger.error(f"语音播报失败: {audio_err}")
-                        print(f"[ROS Listener] 语音播报失败: {audio_err}")
-
-                    # 修复：仅在最后一个药品完成时更新HIS处方状态为dispensed
-                    print(f"[ROS Listener] 最后一个药品完成，更新HIS处方状态为dispensed")
-                    update_his_prescription_status(prescription_code)
-
-                elif not is_last_medicine:
-                    print(f"[ROS Listener] 不是最后一个药品，暂不触发 car_already_arrive，不更新HIS状态")
-                else:
-                    print(f"[ROS Listener] car_already_arrive 已触发过，不重复播放")
-            except Exception as status_err:
-                logger.error(f"获取药品状态失败: {status_err}")
-                print(f"[ROS Listener] 获取药品状态失败: {status_err}")
+                # 更新HIS处方状态为dispensed
+                print(f"[ROS Listener] 药单完成，更新HIS处方状态为dispensed")
+                update_his_prescription_status(prescription_code)
+            else:
+                print(f"[ROS Listener] car_already_arrive 已触发过，不重复播放")
 
 
 # ===== ROS 消息处理（核心分发函数）=====
@@ -613,32 +631,33 @@ async def handle_ros_message(data: str) -> None:
         except Exception as sender_err:
             logger.error(f"通知 HIS Sender 失败: {sender_err}")
 
-    # ===== 药单完成（Step5返回）：通知 HIS Sender 发送end =====
+    # ===== 药品完成（Step5返回）：通知 HIS Sender 发送end（药品级严格校验）=====
     elif status == "running-step5-return" or status == "running_step5_return":
         print(f"[ROS Listener] 判断是否有药品ID:")
         print(f"[ROS Listener]   medicine_id值: {medicine_id}")
         print(f"[ROS Listener]   medicine_id is None: {medicine_id is None}")
         print(f"[ROS Listener]   prescription_code值: {prescription_code}")
 
-        # 区分药单级和药品级消息
-        if medicine_id is None and prescription_code:
-            # 药单级消息：{prescription_code}_running-step5-return
-            print(f"[ROS Listener] 进入【药单级消息分支】- 药单完成，触发发送end")
-            logger.info(f"药单完成: 处方={prescription_code}")
-            print(f"[ROS Listener] 药单完成: 处方={prescription_code}")
+        # 严格药品级校验：必须同时具备 medicine_id 和 prescription_code
+        if medicine_id is not None and prescription_code:
+            # 药品级消息：{medicine_id}_{prescription_code}_running-step5-return
+            print(f"[ROS Listener] 进入【药品级消息分支】- 药品完成，触发发送end")
+            logger.info(f"药品完成: ID={medicine_id}, 处方={prescription_code}")
+            print(f"[ROS Listener] 药品完成: ID={medicine_id}, 处方={prescription_code}")
 
             try:
                 from app.services.his_sender import notify_prescription_step5_return
-                notify_prescription_step5_return(prescription_code)
-                print(f"[ROS Listener] 已调用 notify_prescription_step5_return()")
+                notify_prescription_step5_return(prescription_code, medicine_id)
+                print(f"[ROS Listener] 已调用 notify_prescription_step5_return(prescription_code, medicine_id)")
             except Exception as sender_err:
                 logger.error(f"通知 HIS Sender 失败: {sender_err}")
                 print(f"[ROS Listener] ERROR: 通知 HIS Sender 失败: {sender_err}")
 
-        elif medicine_id is not None and prescription_code:
-            # 药品级消息（旧格式，不处理）
-            print(f"[ROS Listener] 收到药品级running-step5-return（旧格式），不处理")
-            logger.info(f"收到药品级running-step5-return: ID={medicine_id}, 处方={prescription_code}")
+        elif medicine_id is None and prescription_code:
+            # 药单级消息：{prescription_code}_running-step5-return（不触发end发送）
+            print(f"[ROS Listener] 收到药单级running-step5-return，缺少medicine_id，不触发end发送")
+            print(f"[ROS Listener] 需要药品级消息才能严格校验，防止药1、药2相互影响")
+            logger.info(f"收到药单级running-step5-return（忽略）: 处方={prescription_code}")
         else:
             print(f"[ROS Listener] running-step5-return消息格式异常，缺少关键字段")
 
@@ -761,7 +780,15 @@ async def ros_websocket_listener() -> None:
                                 print(f"[收到] ROS 消息: {data}")
 
                                 # 调用消息处理函数（所有业务逻辑在此函数中）
-                                await handle_ros_message(data)
+                                # 关键修复：添加 except Exception 保护
+                                # 防止单条消息处理失败导致 WebSocket 断开重连，丢失后续消息
+                                try:
+                                    await handle_ros_message(data)
+                                except Exception as msg_err:
+                                    print(f"[ROS Listener] [错误] 消息处理异常（不中断连接）: {msg_err}")
+                                    logger.error(f"消息处理异常: {msg_err}", exc_info=True)
+                                    import traceback
+                                    traceback.print_exc()
                             else:
                                 print(f"[ROS Listener] [警告] 消息格式不符合预期，已跳过:")
                                 print(f"[ROS Listener]   期望: {{'msg': {{'data': '...'}}}}")
