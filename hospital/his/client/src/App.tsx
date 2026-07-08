@@ -78,7 +78,7 @@ export default function App() {
       <Route path="/medicine-settings" element={<PrivateRoute><BasicModulePage kind="medicineSettings" title="药盒设置" icon="medicineSettings" /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><BasicModulePage kind="reports" title="报表生成" icon="reports" /></PrivateRoute>} />
       <Route path="/writeoff" element={<PrivateRoute><BasicModulePage kind="writeoff" title="销账" icon="writeoff" /></PrivateRoute>} />
-      <Route path="/operation-log" element={<PrivateRoute><BasicModulePage kind="operationLog" title="操作记录" icon="operationLog" /></PrivateRoute>} />
+      <Route path="/operation-log" element={<PrivateRoute><BasicModulePage kind="operationLog" title="可信审计链" icon="operationLog" /></PrivateRoute>} />
       <Route path="/medicine-down" element={<PrivateRoute><BasicModulePage kind="medicineDown" title="药品下架" icon="medicineDown" /></PrivateRoute>} />
       <Route path="/restock" element={<PrivateRoute><BasicModulePage kind="restock" title="补药" icon="restock" /></PrivateRoute>} />
       <Route path="/inventory" element={<PrivateRoute><BasicModulePage kind="inventory" title="库存查询" icon="inventory" /></PrivateRoute>} />

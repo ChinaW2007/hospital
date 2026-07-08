@@ -8,6 +8,7 @@ import medicineRoutes from './routes/medicines';
 import prescriptionRoutes from './routes/prescriptions';
 import medicineLocationRoutes from './routes/medicineLocations';
 import medicineTraceCodeRoutes from './routes/medicineTraceCodes';
+import auditChainRoutes from './routes/auditChain';
 
 // ── 启动前完整性校验 ──
 if (!verifyIntegrity()) {
@@ -50,6 +51,7 @@ app.use('/api/medicines', medicineRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medicine-locations', medicineLocationRoutes);
 app.use('/api/medicine-trace-codes', medicineTraceCodeRoutes);
+app.use('/api/audit-chain', auditChainRoutes);
 
 // Start server (MySQL pool is initialized in db.ts)
 const server = app.listen(PORT, HOST, () => {

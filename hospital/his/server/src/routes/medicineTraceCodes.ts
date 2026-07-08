@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { appendAuditRecord } from '../services/auditChain';
 
 const router = Router();
 router.use(authMiddleware);
@@ -234,6 +235,7 @@ const ensureTraceCodeRecordForScan = async (conn: any, traceCodeInput: unknown) 
 
 // POST /api/medicine-trace-codes — create user's code, then auto-generate remaining based on stock
 router.post('/', async (req: Request, res: Response) => {
+  const conn = await pool.getConnection();
   try {
     const { medicine_id, trace_code } = req.body;
     if (!medicine_id || !trace_code) {
@@ -241,28 +243,41 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    await conn.beginTransaction();
+
     // Get medicine stock and name (for prefix lookup)
-    const [medRows] = await pool.query<any[]>('SELECT name, stock FROM medicines WHERE id = ?', [medicine_id]);
+    const [medRows] = await conn.query<any[]>('SELECT name, stock FROM medicines WHERE id = ? FOR UPDATE', [medicine_id]);
     if (medRows.length === 0) {
+      await conn.rollback();
       res.status(404).json({ error: '药品不存在' });
       return;
     }
     const stock = medRows[0].stock;
 
     // 获取前缀映射表
-    const prefixMap = await getPrefixMap(pool);
+    const prefixMap = await getPrefixMap(conn);
     const prefix = prefixMap.get(medicine_id);
 
     // Count existing trace codes for this medicine
-    const [countRows] = await pool.query<any[]>('SELECT COUNT(*) as cnt FROM medicine_trace_codes WHERE medicine_id = ?', [medicine_id]);
+    const [countRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM medicine_trace_codes WHERE medicine_id = ?', [medicine_id]);
     const existingCount = countRows[0].cnt;
 
     // Insert user's trace code first
-    const [result] = await pool.query(
+    const normalizedTraceCode = trace_code.trim();
+    const [result] = await conn.query(
       'INSERT INTO medicine_trace_codes (medicine_id, trace_code) VALUES (?, ?)',
-      [medicine_id, trace_code.trim()]
+      [medicine_id, normalizedTraceCode]
     );
     const userInsertId = (result as any).insertId;
+
+    await appendAuditRecord(conn, {
+      eventType: 'DRUG_INBOUND',
+      entityType: 'trace_code',
+      entityId: userInsertId,
+      flowStatus: 'inbound',
+      traceCode: normalizedTraceCode,
+      operatorId: req.user?.id,
+    });
 
     // Auto-generate remaining codes if stock > existingCount + 1
     const needCount = stock - existingCount - 1;
@@ -276,8 +291,18 @@ router.post('/', async (req: Request, res: Response) => {
         values.push(medicine_id, code);
         generatedCodes.push(code);
       }
-      await pool.query(`INSERT INTO medicine_trace_codes (medicine_id, trace_code) VALUES ${placeholders.join(', ')}`, values);
+      await conn.query(`INSERT INTO medicine_trace_codes (medicine_id, trace_code) VALUES ${placeholders.join(', ')}`, values);
+      await appendAuditRecord(conn, {
+        eventType: 'DRUG_INBOUND',
+        entityType: 'trace_code',
+        entityId: `batch:${medicine_id}:${userInsertId}`,
+        flowStatus: 'inbound_batch',
+        traceCodes: generatedCodes,
+        operatorId: req.user?.id,
+      });
     }
+
+    await conn.commit();
 
     res.status(201).json({
       id: userInsertId,
@@ -285,14 +310,16 @@ router.post('/', async (req: Request, res: Response) => {
       generatedCount: generatedCodes.length,
     });
   } catch (err: any) {
+    await conn.rollback();
     if (err.code === 'ER_DUP_ENTRY') {
       res.status(409).json({ error: '该追溯码已被使用' });
       return;
     }
     res.status(500).json({ error: '服务器错误: ' + err.message });
+  } finally {
+    conn.release();
   }
 });
-
 // POST /api/medicine-trace-codes/generate-all — batch generate for all medicines
 router.post('/generate-all', async (_req: Request, res: Response) => {
   try {
@@ -512,21 +539,26 @@ router.get('/lookup', async (req: Request, res: Response) => {
 
 // PUT /api/medicine-trace-codes/:id/scan — advance scan status
 router.put('/:id/scan', async (req: Request, res: Response) => {
+  const conn = await pool.getConnection();
   try {
     const id = parseInt(req.params.id);
     const userId = (req as any).user?.id;
     const prescriptionId = req.body.prescription_id ? parseInt(req.body.prescription_id) : null;
 
-    const [rows] = await pool.query<any[]>(
-      'SELECT * FROM medicine_trace_codes WHERE id = ?', [id]
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query<any[]>(
+      'SELECT * FROM medicine_trace_codes WHERE id = ? FOR UPDATE', [id]
     );
     if (rows.length === 0) {
+      await conn.rollback();
       res.status(404).json({ error: '追溯码不存在' });
       return;
     }
 
     const record = rows[0];
     if (!validatePrescriptionLink(record, prescriptionId, res)) {
+      await conn.rollback();
       return;
     }
 
@@ -534,6 +566,7 @@ router.put('/:id/scan', async (req: Request, res: Response) => {
 
     let updateSql: string;
     const updateParams: any[] = [];
+    let auditEventType: 'DRUG_OUTBOUND' | 'NURSE_RECEIVED' | null = null;
 
     if (currentStatus === 'pending') {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan1_time = NOW(), scan1_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
@@ -541,18 +574,33 @@ router.put('/:id/scan', async (req: Request, res: Response) => {
     } else if (currentStatus === 'scanned_identify') {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan2_time = NOW(), scan2_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
       updateParams.push('scanned_outbound', userId, prescriptionId, id);
+      auditEventType = 'DRUG_OUTBOUND';
     } else if (currentStatus === 'scanned_outbound') {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan3_time = NOW(), scan3_user_id = ?, prescription_id = COALESCE(?, prescription_id) WHERE id = ?';
       updateParams.push('scanned_confirm', userId, prescriptionId, id);
+      auditEventType = 'NURSE_RECEIVED';
     } else {
+      await conn.rollback();
       res.status(400).json({ error: '该追溯码已完成全部扫描' });
       return;
     }
 
-    await pool.query(updateSql, updateParams);
+    await conn.query(updateSql, updateParams);
+
+    if (auditEventType) {
+      await appendAuditRecord(conn, {
+        eventType: auditEventType,
+        entityType: 'trace_code',
+        entityId: id,
+        flowStatus: auditEventType === 'DRUG_OUTBOUND' ? 'scanned_outbound' : 'scanned_confirm',
+        traceCode: record.trace_code,
+        prescriptionId: prescriptionId || record.prescription_id,
+        operatorId: userId,
+      });
+    }
 
     // Return updated record with operator names
-    const [updated] = await pool.query<any[]>(
+    const [updated] = await conn.query<any[]>(
       `SELECT tc.*, u1.real_name AS scan1_user_name, u2.real_name AS scan2_user_name, u3.real_name AS scan3_user_name
        FROM medicine_trace_codes tc
        LEFT JOIN users u1 ON tc.scan1_user_id = u1.id
@@ -561,12 +609,15 @@ router.put('/:id/scan', async (req: Request, res: Response) => {
        WHERE tc.id = ?`, [id]
     );
 
+    await conn.commit();
     res.json(updated[0]);
   } catch (err: any) {
+    await conn.rollback();
     res.status(500).json({ error: '服务器错误: ' + err.message });
+  } finally {
+    conn.release();
   }
 });
-
 // PUT /api/medicine-trace-codes/:id/unscan — revoke scan (go back one step)
 router.put('/:id/unscan', async (req: Request, res: Response) => {
   try {
@@ -630,6 +681,7 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
 
     await conn.beginTransaction();
 
+    const userId = (req as any).user?.id;
     const { record, created } = await ensureTraceCodeRecordForScan(conn, trace_code);
     if (!record) {
       await conn.rollback();
@@ -638,6 +690,14 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
     }
 
     if (created) {
+      await appendAuditRecord(conn, {
+        eventType: 'DRUG_INBOUND',
+        entityType: 'trace_code',
+        entityId: record.id,
+        flowStatus: 'inbound',
+        traceCode: record.trace_code,
+        operatorId: userId,
+      });
       await conn.commit();
       res.json({
         ...record,
@@ -648,12 +708,11 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
       return;
     }
 
-    const userId = (req as any).user?.id;
-
     // Advance scan status
     let updateSql: string;
     const updateParams: any[] = [];
     let actionName: string;
+    let auditEventType: 'DRUG_OUTBOUND' | 'NURSE_RECEIVED' | null = null;
 
     if (record.status === 'pending') {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan1_time = NOW(), scan1_user_id = ? WHERE id = ?';
@@ -663,10 +722,12 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan2_time = NOW(), scan2_user_id = ? WHERE id = ?';
       updateParams.push('scanned_outbound', userId, record.id);
       actionName = '出库';
+      auditEventType = 'DRUG_OUTBOUND';
     } else if (record.status === 'scanned_outbound') {
       updateSql = 'UPDATE medicine_trace_codes SET status = ?, scan3_time = NOW(), scan3_user_id = ? WHERE id = ?';
       updateParams.push('scanned_confirm', userId, record.id);
       actionName = '确认';
+      auditEventType = 'NURSE_RECEIVED';
     } else {
       await conn.commit();
       res.json({
@@ -679,6 +740,18 @@ router.post('/scan-by-code', async (req: Request, res: Response) => {
     }
 
     await conn.query(updateSql, updateParams);
+
+    if (auditEventType) {
+      await appendAuditRecord(conn, {
+        eventType: auditEventType,
+        entityType: 'trace_code',
+        entityId: record.id,
+        flowStatus: auditEventType === 'DRUG_OUTBOUND' ? 'scanned_outbound' : 'scanned_confirm',
+        traceCode: record.trace_code,
+        prescriptionId: record.prescription_id,
+        operatorId: userId,
+      });
+    }
 
     // Return updated record with medicine info
     const [updated] = await conn.query<any[]>(

@@ -37,6 +37,8 @@ const PROTECTED_FILES = [
   'server/src/routes/prescriptions.ts',
   'server/src/routes/medicineLocations.ts',
   'server/src/routes/medicineTraceCodes.ts',
+  'server/src/routes/auditChain.ts',
+  'server/src/services/auditChain.ts',
 ];
 
 const ROOT = path.resolve(__dirname, '..');

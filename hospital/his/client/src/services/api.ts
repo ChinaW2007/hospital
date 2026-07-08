@@ -14,6 +14,30 @@ import type {
   PaginatedResponse,
 } from '../types';
 
+export interface AuditChainRecord {
+  id: number;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  trace_code_hash: string | null;
+  prescription_hash: string | null;
+  operator_hash: string | null;
+  flow_status: string;
+  event_time: string;
+  payload_hash: string;
+  previous_hash: string;
+  current_hash: string;
+  created_at: string;
+}
+
+export interface AuditChainVerifyResult {
+  valid: boolean;
+  total: number;
+  last_hash?: string;
+  broken_at?: number;
+  expected_previous_hash?: string;
+  actual_previous_hash?: string;
+}
 const api = axios.create({
   baseURL: '/api',
   timeout: 10000,
@@ -147,6 +171,16 @@ export const medicineTraceCodeApi = {
     api.post('/medicine-trace-codes/regenerate-all').then((r) => r.data),
 };
 
+// Audit chain
+export const auditChainApi = {
+  list: (params?: { page?: number; pageSize?: number }) =>
+    api
+      .get<PaginatedResponse<AuditChainRecord>>('/audit-chain', { params })
+      .then((r) => r.data),
+
+  verify: () =>
+    api.get<AuditChainVerifyResult>('/audit-chain/verify').then((r) => r.data),
+};
 // Prescriptions
 export const prescriptionApi = {
   list: (params?: { page?: number; pageSize?: number; status?: string }) =>

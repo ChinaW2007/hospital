@@ -27,7 +27,7 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
   { key: 'medicineLocations', to: '/medicine-locations', label: '药品管理', available: true },
   { key: 'medicineSettings', to: '/medicine-settings', label: '药盒设置', available: true },
   { key: 'writeoff', to: '/writeoff', label: '销账', available: true },
-  { key: 'operationLog', to: '/operation-log', label: '操作记录', available: true },
+  { key: 'operationLog', to: '/operation-log', label: '可信审计链', available: true },
   { key: 'medicineDown', to: '/medicine-down', label: '药品下架', available: true },
   { key: 'restock', to: '/restock', label: '补药', available: true },
   { key: 'inventory', to: '/inventory', label: '库存查询', available: true },

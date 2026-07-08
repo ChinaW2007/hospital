@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { appendAuditRecord } from '../services/auditChain';
 
 const router = Router();
 router.use(authMiddleware);
@@ -196,6 +197,17 @@ router.post('/', requireRole('doctor', 'admin'), async (req: Request, res: Respo
         [prescriptionId, prescriptionItemId, item.medicine_id, item.trace_code_id]
       );
     }
+
+    await appendAuditRecord(conn, {
+      eventType: 'PRESCRIPTION_CREATED',
+      entityType: 'prescription',
+      entityId: prescriptionId,
+      flowStatus: 'prescription_created',
+      traceCodes: resolvedItems.map((item) => item.trace_code),
+      prescriptionId,
+      prescriptionCode,
+      operatorId: req.user!.id,
+    });
 
     await conn.commit();
     res.status(201).json({ id: prescriptionId, prescription_code: prescriptionCode, message: '处方已提交，等待药师审核' });
