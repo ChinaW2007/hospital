@@ -46,7 +46,7 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>本应用需要使用您的相机进行药品追溯码扫描复合操作。</string>
+	<string>本应用需要使用摄像头进行药品扫码、人脸录入和机器人配送身份核验。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

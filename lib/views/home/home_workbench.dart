@@ -14,6 +14,10 @@ import 'package:his_mobile/views/prescription/prescription_create_page.dart';
 import 'package:his_mobile/views/prescription/prescription_detail_page.dart';
 import 'package:his_mobile/core/theme/glass_card.dart';
 import 'package:his_mobile/core/widgets/animated_scale_button.dart';
+import 'package:his_mobile/views/auth/face_auth_page.dart';
+import 'package:his_mobile/views/delivery/delivery_records_page.dart';
+import 'package:his_mobile/views/dispense/dispense_management_page.dart';
+import 'package:his_mobile/views/robot/robot_management_page.dart';
 
 class HomeWorkbench extends StatefulWidget {
   const HomeWorkbench({super.key});
@@ -594,6 +598,35 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
                           color: const Color(0xFF7B1FA2),
                           onTap: () => _onTabTapped(4),
                         ),
+                        _buildActionCard(
+                          title: '身份认证',
+                          subtitle: '录入人脸用于核验',
+                          icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+                          color: const Color(0xFF0288D1),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FaceAuthPage())),
+                        ),
+                        _buildActionCard(
+                          title: '配送记录',
+                          subtitle: '到达通知与实时扫脸开锁',
+                          icon: CupertinoIcons.cube_box,
+                          color: const Color(0xFF00897B),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryRecordsPage())),
+                        ),
+                        if (user.isPharmacist)
+                          _buildActionCard(
+                            title: '发药管理',
+                            subtitle: '选择机器人确认发药',
+                            icon: CupertinoIcons.paperplane,
+                            color: const Color(0xFF0F766E),
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DispenseManagementPage())),
+                          ),
+                        _buildActionCard(
+                          title: '机器人管理',
+                          subtitle: user.isAdmin ? '设备维护与测试恢复' : '查看设备调度状态',
+                          icon: CupertinoIcons.device_laptop,
+                          color: const Color(0xFF2563EB),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RobotManagementPage())),
+                        ),
                       ]),
                     ),
                   ),
@@ -642,7 +675,6 @@ class _HomeWorkbenchState extends State<HomeWorkbench> {
                                     _buildMinorTool('医院取药', CupertinoIcons.location_fill),
                                     _buildMinorTool('报表生成', CupertinoIcons.chart_bar_fill),
                                     _buildMinorTool('药盒设置', CupertinoIcons.settings),
-                                    _buildMinorTool('销账管理', CupertinoIcons.list_bullet),
                                     _buildMinorTool('操作记录', CupertinoIcons.time),
                                     _buildMinorTool('药品下架', CupertinoIcons.arrow_down),
                                     _buildMinorTool('补药汇总', CupertinoIcons.plus_rectangle_fill),

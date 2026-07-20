@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 const SizedBox(height: 12),
                 CupertinoTextField(
                   controller: controller,
-                  placeholder: 'http://192.168.51.133:3001',
+                  placeholder: 'http://192.168.101.91:3001',
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: CupertinoDynamicColor.withBrightness(

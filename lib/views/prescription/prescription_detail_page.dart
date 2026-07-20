@@ -147,22 +147,49 @@ class _PrescriptionDetailPageState extends State<PrescriptionDetailPage> {
     }
   }
 
-  // 确认发药操作
+  // 确认发药并选择机器人
   Future<void> _handleDispense() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
-      final response = await ApiClient().dio.put('/api/prescriptions/${widget.prescriptionId}/dispense');
+      final robotResponse = await ApiClient().dio.get('/api/robots');
+      final robots = (robotResponse.data as List)
+          .where((robot) => robot['status'] == 'available')
+          .toList();
+      if (!mounted) return;
+      if (robots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('暂无空闲配送机器人')),
+        );
+        return;
+      }
+      final robotId = await showDialog<int>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('选择配送机器人'),
+          children: robots.map((robot) => SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, robot['id'] as int),
+            child: Text('${robot['code']} · ${robot['name']}'),
+          )).toList(),
+        ),
+      );
+      if (robotId == null) return;
+
+      setState(() {
+        _isLoading = true;
+      });
+      final response = await ApiClient().dio.put(
+        '/api/prescriptions/${widget.prescriptionId}/dispense',
+        data: {'robot_id': robotId},
+      );
       if (response.statusCode == 200 && mounted) {
-        _showFloatingAlert('药品发放已确认！', true);
+        _showFloatingAlert(response.data['message'] ?? '机器人已开始配送', true);
         _fetchDetails();
       }
     } on DioException catch (e) {
-      final err = e.response?.data?['error']?.toString() ?? '确认发药失败';
+      final err = e.response?.data?['error']?.toString() ?? '确认配送失败';
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: Colors.redAccent));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err), backgroundColor: Colors.redAccent),
+        );
       }
     } finally {
       if (mounted) {
@@ -172,7 +199,6 @@ class _PrescriptionDetailPageState extends State<PrescriptionDetailPage> {
       }
     }
   }
-
   // 触发相机扫码复核追溯码
   Future<void> _handleScanCode() async {
     final scannedCode = await Navigator.push<String>(

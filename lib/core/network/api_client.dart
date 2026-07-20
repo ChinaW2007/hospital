@@ -8,7 +8,7 @@ class ApiClient {
   late final Dio dio;
   
   // 默认指向局域网中的 HIS Node.js Server
-  String _baseUrl = 'http://192.168.51.133:3001';
+  String _baseUrl = 'http://192.168.101.26:3001';
 
   factory ApiClient() {
     return _instance;
