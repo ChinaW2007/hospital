@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import { isLicenseInvalid } from './guard';
 
 const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || '10.111.113.4',
+  host: process.env.MYSQL_HOST || '172.20.10.12',
   port: parseInt(process.env.MYSQL_PORT || '3306'),
   user: process.env.MYSQL_USER || 'ros',
   password: process.env.MYSQL_PASS || '123456',

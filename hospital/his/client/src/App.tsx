@@ -12,6 +12,10 @@ import MedicinePage from './pages/MedicinePage';
 import MedicineLocationsPage from './pages/MedicineLocationsPage';
 import ScanPage from './pages/ScanPage';
 import BasicModulePage from './pages/BasicModulePage';
+import FaceAuthPage from './pages/FaceAuthPage';
+import DeliveryRecordsPage from './pages/DeliveryRecordsPage';
+import RobotPage from './pages/RobotPage';
+import DispenseManagementPage from './pages/DispenseManagementPage';
 import { useAuth } from './hooks/useAuth';
 
 const isMobile = (): boolean => {
@@ -65,6 +69,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/patients" element={<PrivateRoute><PatientListPage /></PrivateRoute>} />
+      <Route path="/dispense-management" element={<PrivateRoute><DispenseManagementPage /></PrivateRoute>} />
       <Route path="/patients/:id" element={<PrivateRoute><PatientDetailPage /></PrivateRoute>} />
       <Route path="/prescriptions" element={<PrivateRoute><PrescriptionListPage /></PrivateRoute>} />
       <Route path="/prescriptions/new" element={<PrivateRoute roles={['doctor','admin']}><PrescriptionNewPage /></PrivateRoute>} />
@@ -74,10 +79,13 @@ export default function App() {
       <Route path="/medicines" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-info" element={<PrivateRoute><MedicinePage /></PrivateRoute>} />
       <Route path="/medicine-locations" element={<PrivateRoute><MedicineLocationsPage /></PrivateRoute>} />
-      <Route path="/dispense" element={<PrivateRoute><BasicModulePage kind="dispense" title="医嘱取药" icon="dispense" /></PrivateRoute>} />
+      <Route path="/dispense" element={<PrivateRoute><RobotPage /></PrivateRoute>} />
       <Route path="/medicine-settings" element={<PrivateRoute><BasicModulePage kind="medicineSettings" title="药盒设置" icon="medicineSettings" /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><BasicModulePage kind="reports" title="报表生成" icon="reports" /></PrivateRoute>} />
-      <Route path="/writeoff" element={<PrivateRoute><BasicModulePage kind="writeoff" title="销账" icon="writeoff" /></PrivateRoute>} />
+      <Route path="/face-auth" element={<PrivateRoute><FaceAuthPage /></PrivateRoute>} />
+      <Route path="/delivery-records" element={<PrivateRoute><DeliveryRecordsPage /></PrivateRoute>} />
+      <Route path="/robots" element={<PrivateRoute><RobotPage /></PrivateRoute>} />
+      <Route path="/writeoff" element={<PrivateRoute><DeliveryRecordsPage /></PrivateRoute>} />
       <Route path="/operation-log" element={<PrivateRoute><BasicModulePage kind="operationLog" title="可信审计链" icon="operationLog" /></PrivateRoute>} />
       <Route path="/medicine-down" element={<PrivateRoute><BasicModulePage kind="medicineDown" title="药品下架" icon="medicineDown" /></PrivateRoute>} />
       <Route path="/restock" element={<PrivateRoute><BasicModulePage kind="restock" title="补药" icon="restock" /></PrivateRoute>} />

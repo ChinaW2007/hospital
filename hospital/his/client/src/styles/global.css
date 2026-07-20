@@ -1333,6 +1333,47 @@ textarea.glass-input {
   color: var(--text-secondary);
   margin-top: 4px;
 }
+.report-stats .module-basic-stat { background: linear-gradient(145deg, rgba(255, 255, 255, .66), rgba(232, 244, 255, .42)); }
+.report-status-strip { display: flex; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 18px; border: 1px solid rgba(49, 120, 198, .14); border-radius: 12px; background: rgba(49, 120, 198, .06); }
+.report-status-strip span { padding: 5px 10px; border-radius: 999px; color: var(--text-secondary); font-size: 13px; font-weight: 600; background: rgba(255, 255, 255, .62); }
+.report-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.report-chart-panel { min-width: 0; padding: 18px; border: 1px solid rgba(255, 255, 255, .76); border-radius: 16px; background: rgba(255, 255, 255, .46); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 10px 25px rgba(49, 120, 198, .08); }
+.report-chart-head, .audit-chain-panel-head, .audit-record-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.report-chart-head h3, .audit-chain-panel h4, .audit-record-list h4 { margin: 0; color: var(--text); font-size: 16px; }
+.report-chart-head span, .audit-chain-panel-head small, .audit-record-list-head small { color: var(--text-muted); font-size: 12px; }
+.report-chart { width: 100%; height: 270px; margin-top: 8px; }
+.module-basic-card--audit { padding: 0; overflow: hidden; }
+.audit-chain-shell { display: grid; gap: 18px; padding: 20px; }
+.audit-chain-status { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px; border: 1px solid rgba(50, 198, 186, .26); border-radius: 18px; background: linear-gradient(125deg, rgba(50, 198, 186, .14), rgba(49, 120, 198, .09)); }
+.audit-chain-status--broken { border-color: rgba(220, 38, 38, .28); background: linear-gradient(125deg, rgba(220, 38, 38, .12), rgba(231, 140, 168, .1)); }
+.audit-chain-kicker, .audit-chain-panel-head span, .audit-record-list-head span { display: block; margin-bottom: 5px; color: var(--primary); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+.audit-chain-status h3 { margin: 0; color: var(--text); font-size: 21px; }
+.audit-chain-status p { margin: 7px 0 0; color: var(--text-secondary); font-size: 13px; }
+.audit-chain-proof-grid { display: grid; grid-template-columns: repeat(3, minmax(110px, 1fr)); gap: 10px; }
+.audit-chain-proof { min-width: 0; padding: 12px; border: 1px solid rgba(255, 255, 255, .72); border-radius: 12px; background: rgba(255, 255, 255, .52); }
+.audit-chain-proof span, .audit-chain-proof small, .audit-record-main span, .audit-record-subject span, .audit-record-fingerprints span { display: block; color: var(--text-muted); font-size: 11px; }
+.audit-chain-proof strong { display: block; margin: 4px 0; color: var(--text); font-size: 18px; }
+.audit-chain-proof code, .audit-chain-node-hash, .audit-record-fingerprints code { overflow: hidden; color: #16599b; font-family: Consolas, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.audit-chain-panel, .audit-record-list { padding: 18px; border: 1px solid rgba(255, 255, 255, .74); border-radius: 16px; background: rgba(255, 255, 255, .4); }
+.audit-chain-visual { display: flex; gap: 28px; margin-top: 18px; padding: 4px 4px 12px; overflow-x: auto; }
+.audit-chain-node { position: relative; flex: 0 0 164px; padding: 14px; border: 1px solid rgba(49, 120, 198, .16); border-radius: 14px; background: rgba(255, 255, 255, .64); }
+.audit-chain-node--broken, .audit-record-card--broken { border-color: rgba(220, 38, 38, .42); background: rgba(255, 241, 242, .72); }
+.audit-chain-node-index, .audit-record-mark { color: var(--primary); font-size: 12px; font-weight: 800; }
+.audit-chain-node-title { margin-top: 8px; color: var(--text); font-size: 14px; font-weight: 700; }
+.audit-chain-node-time { margin-top: 5px; color: var(--text-muted); font-size: 11px; }
+.audit-chain-node-hash { display: block; margin-top: 12px; }
+.audit-chain-node-hash span { margin-right: 5px; color: var(--text-muted); font-family: inherit; font-size: 10px; font-weight: 700; }
+.audit-chain-link { position: absolute; top: 50%; left: calc(100% + 1px); width: 27px; height: 1px; background: rgba(49, 120, 198, .38); }
+.audit-chain-link::after { content: ''; position: absolute; top: -3px; right: 0; width: 7px; height: 7px; border-top: 1px solid rgba(49, 120, 198, .6); border-right: 1px solid rgba(49, 120, 198, .6); transform: rotate(45deg); }
+.audit-chain-empty { width: 100%; padding: 26px; color: var(--text-muted); text-align: center; }
+.audit-record-list { display: grid; gap: 12px; }
+.audit-record-card { display: grid; grid-template-columns: 48px minmax(120px, 1fr) minmax(120px, 1fr) minmax(190px, 1.5fr); gap: 14px; align-items: center; padding: 14px; border: 1px solid rgba(49, 120, 198, .12); border-radius: 12px; background: rgba(255, 255, 255, .5); }
+.audit-record-main, .audit-record-subject, .audit-record-fingerprints { min-width: 0; }
+.audit-record-main strong, .audit-record-subject strong { display: block; margin-top: 3px; color: var(--text); font-size: 13px; }
+.audit-record-main em { display: inline-block; margin-top: 5px; padding: 2px 7px; border-radius: 999px; color: #0f766e; font-size: 11px; font-style: normal; background: rgba(50, 198, 186, .13); }
+.audit-record-subject small { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
+.audit-record-fingerprints { display: grid; gap: 7px; }
+.audit-record-fingerprints code { display: block; margin-top: 2px; }
 .patient-table th,
 .patient-table td {
   text-align: center;

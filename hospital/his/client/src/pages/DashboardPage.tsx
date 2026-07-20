@@ -44,6 +44,12 @@ export default function DashboardPage() {
         <p>欢迎回来，{user?.real_name}</p>
       </div>
 
+      <div className="glass-card mb" style={{ padding: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <strong style={{ flex: 1 }}>账户安全</strong>
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>请提前录入人脸，用于机器人送药核验。</span>
+        <button className="glass-btn glass-btn--outline" onClick={() => navigate('/face-auth')}>身份认证</button>
+      </div>
+
       {/* 12 modules */}
       <div className="card mb" style={{ padding:16 }}>
         <div className="module-grid">

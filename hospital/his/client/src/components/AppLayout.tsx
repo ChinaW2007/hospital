@@ -50,7 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { to:'/dashboard', icon:'dashboard', label:'工作版' },
     { to:'/prescriptions/new', icon:'prescriptionNew', label:'开具处方', roles:['doctor','admin'] },
     { to:'/review', icon:'review', label:'处方审核', roles:['pharmacist','admin'] },
-    { to:'/patients', icon:'patients', label:'病人管理' },
+    { to:'/dispense-management', icon:'patients', label:'发药管理' },
     { to:'/medicines', icon:'medicines', label:'药品管理' },
   ];
   const tabs = allTabs.filter(t => !t.roles || (user&&t.roles.includes(user.role)));

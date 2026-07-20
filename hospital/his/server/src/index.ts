@@ -10,6 +10,9 @@ import medicineLocationRoutes from './routes/medicineLocations';
 import medicineTraceCodeRoutes from './routes/medicineTraceCodes';
 import auditChainRoutes from './routes/auditChain';
 
+import faceProfileRoutes from './routes/faceProfiles';
+import robotRoutes from './routes/robots';
+import deliveryRecordRoutes from './routes/deliveryRecords';
 // ── 启动前完整性校验 ──
 if (!verifyIntegrity()) {
   console.error('═══════════════════════════════════════════');
@@ -26,7 +29,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
 
 // ── 第1层: 全局保护中间件（所有请求最先经过此处）──
 // 登录接口跳过此层，由 routes/auth.ts 中的第4层检查处理（返回403，错误信息可正常显示）
@@ -53,6 +56,9 @@ app.use('/api/medicine-locations', medicineLocationRoutes);
 app.use('/api/medicine-trace-codes', medicineTraceCodeRoutes);
 app.use('/api/audit-chain', auditChainRoutes);
 
+app.use('/api/face-profiles', faceProfileRoutes);
+app.use('/api/robots', robotRoutes);
+app.use('/api/delivery-records', deliveryRecordRoutes);
 // Start server (MySQL pool is initialized in db.ts)
 const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 服务器已启动: http://${HOST}:${PORT}`);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { prescriptionApi } from '../services/api';
+import api, { prescriptionApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import type { Prescription } from '../types';
 import { STATUS_LABELS, STATUS_COLORS } from '../types';
@@ -43,9 +43,11 @@ export default function PrescriptionDetailPage() {
   };
 
   const confirmDispense = async () => {
+    const robotId = window.prompt('请输入空闲配送机器人 ID（可在机器人管理中查看）');
+    if (!robotId || !Number(robotId)) return;
     setConfirmDispenseOpen(false);
     setActionLoading(true);
-    try { const res = await prescriptionApi.dispense(Number(id)); showToast(res.message || '药品已发放', 'success'); load(); }
+    try { const res = await api.put(`/prescriptions/${id}/dispense`, { robot_id: Number(robotId) }); showToast(res.data.message || '已开始配送', 'success'); load(); }
     catch (err: any) { showToast(err.response?.data?.error || '操作失败', 'error'); }
     finally { setActionLoading(false); }
   };

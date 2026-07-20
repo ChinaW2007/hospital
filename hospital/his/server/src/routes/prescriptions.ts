@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { appendAuditRecord } from '../services/auditChain';
+import { ensureDeliverySchema } from '../services/deliverySchema';
 
 const router = Router();
 router.use(authMiddleware);
@@ -359,37 +360,75 @@ router.put('/:id/review', requireRole('pharmacist', 'admin'), async (req: Reques
   }
 });
 
-// PUT /api/prescriptions/:id/dispense — confirm dispensing
+// PUT /api/prescriptions/:id/dispense — create one robot delivery record per prescription medicine
 router.put('/:id/dispense', requireRole('pharmacist', 'admin'), async (req: Request, res: Response) => {
+  const conn = await pool.getConnection();
   try {
     const id = parseInt(req.params.id);
+    const robotId = Number(req.body.robot_id);
+    const robotCode = String(req.body.robot_code || '').trim().toUpperCase();
+    if (!robotId && !robotCode) {
+      res.status(400).json({ error: '请输入或选择机器人设备编号' });
+      return;
+    }
 
-    const [checkRows] = await pool.query<any[]>(
-      'SELECT status FROM prescriptions WHERE id = ?',
+    await ensureDeliverySchema(conn);
+    await conn.beginTransaction();
+    const [checkRows] = await conn.query<any[]>(
+      'SELECT status FROM prescriptions WHERE id = ? FOR UPDATE',
       [id]
     );
-
     if (checkRows.length === 0) {
+      await conn.rollback();
       res.status(404).json({ error: '处方不存在' });
       return;
     }
-
     if (checkRows[0].status !== 'approved') {
-      res.status(400).json({ error: '只有审核通过的处方才能发药' });
+      await conn.rollback();
+      res.status(400).json({ error: '只有审核通过的处方才能发起配送' });
       return;
     }
 
-    await pool.query(
-      'UPDATE prescriptions SET status=\'dispensed\', pharmacist_dispense_id=?, dispensed_at=NOW() WHERE id=?',
+    const [robots] = await conn.query<any[]>(
+      "SELECT id FROM robots WHERE (id = ? OR code = ?) AND status = 'available' FOR UPDATE",
+      [robotId || -1, robotCode]
+    );
+    if (!robots.length) {
+      await conn.rollback();
+      res.status(400).json({ error: '所选机器人不可用，请选择空闲机器人' });
+      return;
+    }
+    const selectedRobotId = Number(robots[0].id);
+    const [items] = await conn.query<any[]>('SELECT id FROM prescription_items WHERE prescription_id = ?', [id]);
+    if (!items.length) {
+      await conn.rollback();
+      res.status(400).json({ error: '处方没有可配送药品' });
+      return;
+    }
+    for (const item of items) {
+      await conn.query(
+        'INSERT INTO delivery_records (prescription_id, prescription_item_id, robot_id, dispatched_by) VALUES (?, ?, ?, ?)',
+        [id, item.id, selectedRobotId, req.user!.id]
+      );
+    }
+    await conn.query("UPDATE robots SET status = 'busy' WHERE id = ?", [selectedRobotId]);
+    await conn.query(
+      "UPDATE prescriptions SET status = 'dispensed', pharmacist_dispense_id = ?, dispensed_at = NOW() WHERE id = ?",
       [req.user!.id, id]
     );
-
-    res.json({ message: '药品已发放' });
+    await conn.commit();
+    res.json({ message: `已创建 ${items.length} 条配送记录，机器人开始配送` });
   } catch (err: any) {
+    await conn.rollback();
+    if (err.code === 'ER_DUP_ENTRY') {
+      res.status(400).json({ error: '该处方药品已创建配送记录' });
+      return;
+    }
     res.status(500).json({ error: '服务器错误: ' + err.message });
+  } finally {
+    conn.release();
   }
 });
-
 // DELETE /api/prescriptions/all — delete all prescriptions and their items
 router.delete('/all', async (_req: Request, res: Response) => {
   const conn = await pool.getConnection();

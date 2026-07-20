@@ -11,6 +11,7 @@ from app.api.v1.routers.agent import router as agent_router
 from app.api.v1.routers.data import router as data_router
 from app.api.v1.routers.prescription import router as prescription_router
 from app.api.v1.routers.workflow import router as workflow_router
+from app.api.v1.routers.face import router as face_router
 from app.db import models
 from app.db.session import engine
 from app.services.ros_listener import start_ros_listener
@@ -128,4 +129,5 @@ app.include_router(agent_router, prefix="/api/v1/agent", tags=["agent"])
 app.include_router(data_router, prefix="/api/v1/data", tags=["data"])
 app.include_router(prescription_router, prefix="/api/v1", tags=["prescription"])
 app.include_router(workflow_router, prefix="/api/v1", tags=["workflow"])
+app.include_router(face_router, prefix="/api/v1/face", tags=["face"])
 
